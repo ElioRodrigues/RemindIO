@@ -20,10 +20,6 @@ Trabalho da 1ª avaliação da disciplina de Programação Mobile.
 A navegação é um **Stack** na raiz (Login → Cadastro → app) e **Bottom Tabs**
 dentro do app, em `src/app/(tabs)/_layout.tsx`.
 
-## Prints
-
-As imagens ficam em `docs/prints/`.
-
 ## Como rodar
 
 Precisa de Node 18+ e do app **Expo Go** no celular (ou de um emulador Android).
