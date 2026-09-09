@@ -1,12 +1,14 @@
 # Desenhos do pet
 
 O app carrega estes três arquivos pelo nome exato, em `src/app/(tabs)/inicio.tsx`.
+Qual deles aparece vem da saúde calculada em `src/services/pet.ts`, nas mesmas
+faixas da cor da barra:
 
 | Arquivo | Quando aparece |
 |---|---|
-| `saudavel.png` | nenhuma dose atrasada hoje |
-| `abatido.png`  | uma dose atrasada, ou a última dose foi ontem |
-| `doente.png`   | mais de um dia sem dose no horário |
+| `saudavel.png` | saúde acima de 60 |
+| `abatido.png`  | saúde entre 30 e 60 |
+| `doente.png`   | saúde abaixo de 30 |
 
 Todos são **PNG 512x512 com fundo transparente**. O app desenha em 160x160 com
 `resizeMode: 'contain'`.
