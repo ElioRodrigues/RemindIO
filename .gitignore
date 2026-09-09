@@ -39,3 +39,14 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Arquivos de trabalho, fora do repositorio
+CLAUDE.md
+AGENTS.md
+PLANO.md
+ROTEIRO.md
+ESTUDO.md
+ROTEIRO-VIDEO.md
+.claude/
+.cursor/
+assets/pet/originais/

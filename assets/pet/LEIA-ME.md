@@ -13,11 +13,11 @@ faixas da cor da barra:
 Todos são **PNG 512x512 com fundo transparente**. O app desenha em 160x160 com
 `resizeMode: 'contain'`.
 
-## Como estes arquivos foram preparados
+## Como o fundo foi removido
 
-As imagens que o Gemini gerou vieram com o **padrão xadrez desenhado dentro da
-imagem** — ele imita a aparência de transparência de um editor, mas são pixels
-cinza e branco de verdade. Coladas direto no app, apareceriam com o xadrez.
+As imagens de origem vinham com o **padrão xadrez desenhado dentro da imagem**.
+O xadrez imita a aparência de transparência de um editor, mas são pixels cinza e
+branco de verdade — colados direto no app, apareceriam na tela.
 
 A limpeza foi feita assim:
 
@@ -31,10 +31,8 @@ A limpeza foi feita assim:
    contra o xadrez
 4. Recortar, deixar quadrado e reduzir para 512x512
 
-Os arquivos originais do Gemini estão em `originais/`, caso precise refazer.
+## Se precisar de novas versões
 
-## Para gerar novas versões
-
-- Peça **fundo branco liso**, não "transparente" — o Gemini desenha o xadrez
-- Ou peça em PNG e confira se o fundo é realmente transparente antes de usar
-- Mesmo estilo 3D da logo: urso roxo, acabamento fosco, luz suave, centralizado
+Mesmo estilo dos atuais: urso roxo em 3D, acabamento fosco, luz suave,
+centralizado, **fundo branco liso** (fundo pedido como "transparente" costuma
+voltar com o xadrez desenhado) e exportado como PNG 512x512.
