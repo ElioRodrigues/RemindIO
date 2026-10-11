@@ -50,6 +50,18 @@ export function horarioEmMinutos(horario: string): number {
   return horas * 60 + minutos;
 }
 
+// O caminho de volta: 510 vira "08:30". Serve para mostrar na tela um
+// horário que foi calculado em minutos, como "a partir de 07:00".
+export function minutosEmHorario(minutos: number): string {
+  // Um dia tem 1440 minutos. O resto da divisão faz -30 virar 1410 (23:30),
+  // em vez de um horário negativo.
+  const noDia = ((minutos % 1440) + 1440) % 1440;
+  const horas = Math.floor(noDia / 60);
+  const resto = noDia % 60;
+
+  return doisDigitos(horas) + ':' + doisDigitos(resto);
+}
+
 export function minutosDeAgora(): number {
   const agora = new Date();
   return agora.getHours() * 60 + agora.getMinutes();

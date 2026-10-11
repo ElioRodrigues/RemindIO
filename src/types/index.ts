@@ -30,5 +30,19 @@ export interface Pet {
   // da mesma verdade, que é justamente o que causava incoerência antes.
 }
 
+// Cada horário de cada remédio vira uma dose do dia. Não é guardada: é
+// montada a partir dos remédios toda vez que a tela de Início abre.
+export interface Dose {
+  remedio: Remedio;
+  horario: string;
+}
+
+// Em que pé está uma dose de hoje, do ponto de vista do usuário:
+// - aguardando: falta mais de uma hora, ainda não dá para confirmar
+// - liberada: está na janela do horário, é a hora de tomar
+// - atrasada: passou da tolerância e não foi confirmada
+// - tomada: já foi confirmada hoje
+export type SituacaoDaDose = 'aguardando' | 'liberada' | 'atrasada' | 'tomada';
+
 // Os três desenhos que o pet pode ter na tela de Início.
 export type EstadoDoPet = 'saudavel' | 'abatido' | 'doente';

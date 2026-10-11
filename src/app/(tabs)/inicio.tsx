@@ -12,12 +12,17 @@ import {
 import { BarraSaude } from '../../components/BarraSaude';
 import { Botao } from '../../components/Botao';
 import { CORES } from '../../constants/cores';
-import { dataDeHoje, horarioEmMinutos, minutosDeAgora } from '../../services/datas';
 import {
-  TOLERANCIA_EM_MINUTOS,
-  calcularSaude,
-  estadoDoPet,
-} from '../../services/pet';
+  dataDeHoje,
+  horarioEmMinutos,
+  minutosEmHorario,
+} from '../../services/datas';
+import {
+  ANTECEDENCIA_EM_MINUTOS,
+  montarDosesDeHoje,
+  situacaoDaDose,
+} from '../../services/doses';
+import { calcularSaude, estadoDoPet } from '../../services/pet';
 import {
   lerPet,
   listarRemedios,
@@ -25,13 +30,7 @@ import {
   registrarTomada,
   salvarPet,
 } from '../../services/storage';
-import { EstadoDoPet, Pet, Remedio, Tomada } from '../../types';
-
-// Cada horário de cada remédio vira uma dose do dia.
-interface Dose {
-  remedio: Remedio;
-  horario: string;
-}
+import { Dose, Pet, Remedio, Tomada } from '../../types';
 
 // Os três desenhos ficam em assets/pet. O require precisa do caminho
 // escrito por extenso: ele é resolvido antes do app rodar.
@@ -82,35 +81,13 @@ export default function Inicio() {
     }, [])
   );
 
-  // Monta a lista de doses percorrendo cada remédio e cada horário dele.
-  const doses: Dose[] = [];
-  for (let i = 0; i < remedios.length; i++) {
-    for (let j = 0; j < remedios[i].horarios.length; j++) {
-      doses.push({ remedio: remedios[i], horario: remedios[i].horarios[j] });
-    }
-  }
-
-  // Procura nas tomadas se essa dose já foi confirmada hoje.
-  function jaFoiTomada(remedioId: string, horario: string): boolean {
-    let encontrada = false;
-
-    for (let i = 0; i < tomadas.length; i++) {
-      if (
-        tomadas[i].remedioId === remedioId &&
-        tomadas[i].horario === horario &&
-        tomadas[i].data === dataDeHoje()
-      ) {
-        encontrada = true;
-      }
-    }
-
-    return encontrada;
-  }
+  // Uma dose por horário de cada remédio, já em ordem de horário.
+  const doses = montarDosesDeHoje(remedios);
 
   async function confirmarDose(dose: Dose) {
-    // Passou mais de uma hora do horário marcado? Então foi atrasada.
-    const atrasada =
-      minutosDeAgora() > horarioEmMinutos(dose.horario) + TOLERANCIA_EM_MINUTOS;
+    // A mesma regra que pinta a dose de atrasada na tela decide o que é
+    // gravado, para a tela e o pet nunca discordarem.
+    const atrasada = situacaoDaDose(dose, tomadas) === 'atrasada';
 
     await registrarTomada({
       remedioId: dose.remedio.id,
@@ -157,20 +134,39 @@ export default function Inicio() {
             Nenhum remédio cadastrado ainda. Vá até a aba Remédios.
           </Text>
         }
-        renderItem={({ item }) => (
-          <View style={styles.dose}>
-            <View style={styles.doseTexto}>
-              <Text style={styles.doseNome}>{item.remedio.nome}</Text>
-              <Text style={styles.doseHorario}>{item.horario}</Text>
-            </View>
+        renderItem={({ item }) => {
+          const situacao = situacaoDaDose(item, tomadas);
 
-            {jaFoiTomada(item.remedio.id, item.horario) ? (
-              <Text style={styles.tomada}>Tomada</Text>
-            ) : (
-              <Botao titulo="Tomei" aoPressionar={() => confirmarDose(item)} />
-            )}
-          </View>
-        )}
+          // Antes da janela o botão não aparece: mostramos a partir de
+          // quando a dose pode ser confirmada.
+          const liberaAs = minutosEmHorario(
+            horarioEmMinutos(item.horario) - ANTECEDENCIA_EM_MINUTOS
+          );
+
+          return (
+            <View style={styles.dose}>
+              <View style={styles.doseTexto}>
+                <Text style={styles.doseNome}>{item.remedio.nome}</Text>
+                <Text style={styles.doseHorario}>
+                  {item.horario}
+                  {situacao === 'atrasada' ? ' (atrasada)' : ''}
+                </Text>
+              </View>
+
+              {situacao === 'tomada' ? (
+                <Text style={styles.tomada}>Tomada</Text>
+              ) : null}
+
+              {situacao === 'aguardando' ? (
+                <Text style={styles.aguardando}>a partir de {liberaAs}</Text>
+              ) : null}
+
+              {situacao === 'liberada' || situacao === 'atrasada' ? (
+                <Botao titulo="Tomei" aoPressionar={() => confirmarDose(item)} />
+              ) : null}
+            </View>
+          );
+        }}
       />
     </View>
   );
@@ -236,6 +232,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: CORES.coral,
     marginTop: 2,
+  },
+  aguardando: {
+    fontSize: 13,
+    color: CORES.roxo,
   },
   tomada: {
     fontSize: 14,
