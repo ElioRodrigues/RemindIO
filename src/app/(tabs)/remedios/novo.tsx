@@ -34,10 +34,43 @@ const valoresIniciais: DadosDoRemedio = {
   observacao: '',
 };
 
+// Um horário de verdade: a hora vai de 00 a 23 ([01]\d pega 00 a 19,
+// 2[0-3] pega 20 a 23) e os minutos de 00 a 59. Antes a regra era só
+// "dois dígitos, dois pontos, dois dígitos", e 25:99 passava.
+const HORA = '([01]\\d|2[0-3]):[0-5]\\d';
+
 // Aceita 08:00 ou vários horários separados por vírgula: 08:00, 20:00
-const FORMATO_DA_LISTA = /^\d{2}:\d{2}(\s*,\s*\d{2}:\d{2})*$/;
+const FORMATO_DA_LISTA = new RegExp('^' + HORA + '(\\s*,\\s*' + HORA + ')*$');
 // Aceita um horário só: 08:00
-const FORMATO_DE_UM_HORARIO = /^\d{2}:\d{2}$/;
+const FORMATO_DE_UM_HORARIO = new RegExp('^' + HORA + '$');
+
+// Separa "08:00, 20:00" em ["08:00", "20:00"], sem os espaços.
+function separarHorarios(texto: string): string[] {
+  const partes = texto.split(',');
+  const lista: string[] = [];
+
+  for (let i = 0; i < partes.length; i++) {
+    lista.push(partes[i].trim());
+  }
+
+  return lista;
+}
+
+// true quando algum horário aparece duas vezes. Um horário repetido viraria
+// duas doses iguais no Início, e o pet cobraria a mesma dose duas vezes.
+function temHorarioRepetido(texto: string): boolean {
+  const lista = separarHorarios(texto);
+
+  for (let i = 0; i < lista.length; i++) {
+    // indexOf devolve a primeira posição do valor. Se não for a posição
+    // atual, é porque o mesmo horário já apareceu antes.
+    if (lista.indexOf(lista[i]) !== i) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 // Cada modo tem as suas regras, porque os campos preenchidos são outros.
 const regrasDoModoFixo = Yup.object({
@@ -45,7 +78,11 @@ const regrasDoModoFixo = Yup.object({
   dosagem: Yup.string().required('Informe a dosagem'),
   horarios: Yup.string()
     .required('Informe pelo menos um horário')
-    .matches(FORMATO_DA_LISTA, 'Use o formato 08:00 ou 08:00, 20:00'),
+    .matches(FORMATO_DA_LISTA, 'Use horários de 00:00 a 23:59, como 08:00, 20:00')
+    // test é uma regra feita à mão: devolve true quando o valor é válido.
+    .test('sem-repetidos', 'Tem um horário repetido', function (valor) {
+      return valor === undefined || !temHorarioRepetido(valor);
+    }),
 });
 
 const regrasDoModoCiclo = Yup.object({
@@ -53,7 +90,7 @@ const regrasDoModoCiclo = Yup.object({
   dosagem: Yup.string().required('Informe a dosagem'),
   horaInicial: Yup.string()
     .required('Informe o primeiro horário')
-    .matches(FORMATO_DE_UM_HORARIO, 'Use o formato 08:00'),
+    .matches(FORMATO_DE_UM_HORARIO, 'Use um horário de 00:00 a 23:59, como 08:00'),
   intervalo: Yup.number()
     .typeError('Informe um número de horas')
     .required('Informe de quantas em quantas horas')
@@ -74,11 +111,7 @@ export default function NovoRemedio() {
       listaDeHorarios = horariosDoCiclo(dados.horaInicial, intervaloEmHoras);
     } else {
       // No modo fixo o usuário digita tudo num campo só, separado por vírgula.
-      const partes = dados.horarios.split(',');
-
-      for (let i = 0; i < partes.length; i++) {
-        listaDeHorarios.push(partes[i].trim());
-      }
+      listaDeHorarios = separarHorarios(dados.horarios);
     }
 
     await salvarRemedio({
