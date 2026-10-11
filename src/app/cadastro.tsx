@@ -30,7 +30,12 @@ const valoresIniciais: DadosDoCadastro = {
 
 const regrasDeValidacao = Yup.object({
   nome: Yup.string().required('Informe seu nome'),
-  email: Yup.string().required('Informe o e-mail').email('E-mail inválido'),
+  // trim antes de validar: o teclado do celular costuma pôr um espaço no fim
+  // do e-mail, e sem isso o Yup recusaria um e-mail que está certo.
+  email: Yup.string()
+    .trim()
+    .required('Informe o e-mail')
+    .email('E-mail inválido'),
   senha: Yup.string()
     .required('Informe a senha')
     .min(6, 'A senha precisa ter 6 caracteres'),
@@ -42,8 +47,12 @@ const regrasDeValidacao = Yup.object({
 
 export default function Cadastro() {
   async function criarConta(dados: DadosDoCadastro) {
+    // Guardamos o e-mail sempre do mesmo jeito, sem espaços e em minúsculas,
+    // senão "Ana@email.com" e "ana@email.com" virariam duas contas.
+    const email = dados.email.trim().toLowerCase();
+
     // Não pode existir duas contas com o mesmo e-mail.
-    const jaExiste = await buscarUsuarioPorEmail(dados.email);
+    const jaExiste = await buscarUsuarioPorEmail(email);
 
     if (jaExiste !== null) {
       Alert.alert('E-mail em uso', 'Já existe uma conta com esse e-mail.');
@@ -51,8 +60,8 @@ export default function Cadastro() {
     }
 
     await salvarUsuario({
-      nome: dados.nome,
-      email: dados.email,
+      nome: dados.nome.trim(),
+      email: email,
       senha: dados.senha,
     });
 

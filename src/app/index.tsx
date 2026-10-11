@@ -1,5 +1,6 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Formik } from 'formik';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -13,7 +14,11 @@ import * as Yup from 'yup';
 import { Botao } from '../components/Botao';
 import { CampoTexto } from '../components/CampoTexto';
 import { CORES } from '../constants/cores';
-import { buscarUsuarioPorEmail, salvarSessao } from '../services/storage';
+import {
+  buscarUsuarioPorEmail,
+  lerSessao,
+  salvarSessao,
+} from '../services/storage';
 
 interface DadosDoLogin {
   email: string;
@@ -27,16 +32,38 @@ const valoresIniciais: DadosDoLogin = {
 
 // O Yup só descreve as regras. Quem chama essas regras é o Formik.
 const regrasDeValidacao = Yup.object({
-  email: Yup.string().required('Informe o e-mail').email('E-mail inválido'),
+  // trim antes de validar: o teclado do celular costuma pôr um espaço no fim
+  // do e-mail, e sem isso o Yup recusaria um e-mail que está certo.
+  email: Yup.string()
+    .trim()
+    .required('Informe o e-mail')
+    .email('E-mail inválido'),
   senha: Yup.string()
     .required('Informe a senha')
     .min(6, 'A senha precisa ter 6 caracteres'),
 });
 
 export default function Login() {
+  // Ao abrir o app, ainda não sabemos se alguém ficou logado da última vez.
+  // Enquanto o AsyncStorage não responde, a situação é 'verificando'.
+  const [sessao, setSessao] = useState<'verificando' | 'logado' | 'deslogado'>(
+    'verificando'
+  );
+
+  useEffect(() => {
+    async function verificarSessao() {
+      const email = await lerSessao();
+      setSessao(email === null ? 'deslogado' : 'logado');
+    }
+
+    verificarSessao();
+  }, []);
+
   // É async porque ler o AsyncStorage demora, e por isso usamos await.
   async function entrar(dados: DadosDoLogin) {
-    const usuario = await buscarUsuarioPorEmail(dados.email);
+    // "Ana@Email.com " e "ana@email.com" são o mesmo e-mail para o usuário.
+    const email = dados.email.trim().toLowerCase();
+    const usuario = await buscarUsuarioPorEmail(email);
 
     if (usuario === null || usuario.senha !== dados.senha) {
       Alert.alert('Não deu certo', 'E-mail ou senha incorretos.');
@@ -52,6 +79,18 @@ export default function Login() {
 
     // replace impede que o botão físico de voltar retorne para o Login.
     router.replace('/inicio');
+  }
+
+  // Tela vazia por um instante, em vez de piscar o formulário de login
+  // para quem já estava logado.
+  if (sessao === 'verificando') {
+    return <View style={styles.tela} />;
+  }
+
+  // Redirect é o componente do Expo Router que troca de rota assim que é
+  // desenhado. Funciona como um router.replace, sem deixar o Login na pilha.
+  if (sessao === 'logado') {
+    return <Redirect href="/inicio" />;
   }
 
   return (
