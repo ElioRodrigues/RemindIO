@@ -4,6 +4,7 @@ import {
   FormularioRemedio,
   RemedioDoFormulario,
 } from '../../../components/FormularioRemedio';
+import { guardarFoto } from '../../../services/fotos';
 import { salvarRemedio } from '../../../services/storage';
 
 export default function NovoRemedio() {
@@ -15,6 +16,9 @@ export default function NovoRemedio() {
       // Os três pontinhos copiam nome, dosagem, horários, intervalo e
       // observação que vieram do formulário.
       ...dados,
+      // Escrito depois do ...dados, a foto daqui vale mais que a de lá:
+      // troca o endereço temporário da câmera pelo da pasta do app.
+      foto: guardarFoto(dados.foto ?? ''),
     });
 
     if (Platform.OS === 'android') {

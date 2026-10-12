@@ -13,6 +13,10 @@ export interface Remedio {
   // Maior que 0 quando escolheu um ciclo de X em X horas.
   intervaloEmHoras: number;
   observacao: string;
+  // Endereço da foto da caixa ou da receita, na pasta do app ('' sem foto).
+  // O ? diz que o campo pode faltar: os remédios cadastrados antes da
+  // câmera existir foram salvos sem ele.
+  foto?: string;
 }
 
 export interface Tomada {

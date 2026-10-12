@@ -7,6 +7,7 @@ import { FONTES } from '../constants/fontes';
 import { horariosDoCiclo } from '../services/datas';
 import { Remedio } from '../types';
 import { Botao } from './Botao';
+import { CampoFoto } from './CampoFoto';
 import { CampoTexto } from './CampoTexto';
 
 // O que o formulário entrega para a tela: um remédio completo, menos o id.
@@ -136,6 +137,11 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
       ? 'ciclo'
       : 'fixo'
   );
+  // A foto também fica fora do Formik: ela não é digitada nem validada,
+  // só escolhida. '' quer dizer "sem foto".
+  const [foto, setFoto] = useState(
+    props.remedio !== undefined && props.remedio.foto ? props.remedio.foto : ''
+  );
 
   async function enviar(campos: CamposDoFormulario) {
     let listaDeHorarios: string[] = [];
@@ -156,6 +162,9 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
       horarios: listaDeHorarios,
       intervaloEmHoras: intervaloEmHoras,
       observacao: campos.observacao.trim(),
+      // Aqui a foto ainda pode ser o endereço temporário da câmera. A tela
+      // que salva é quem copia para a pasta do app (guardarFoto).
+      foto: foto,
     });
   }
 
@@ -180,6 +189,8 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
           isSubmitting,
         }) => (
           <>
+            <CampoFoto foto={foto} aoMudarFoto={setFoto} />
+
             <CampoTexto
               rotulo="Nome do remédio"
               valor={values.nome}

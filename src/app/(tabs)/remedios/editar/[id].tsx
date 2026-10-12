@@ -6,6 +6,7 @@ import {
   RemedioDoFormulario,
 } from '../../../../components/FormularioRemedio';
 import { CORES } from '../../../../constants/cores';
+import { apagarFoto, guardarFoto } from '../../../../services/fotos';
 import { atualizarRemedio, buscarRemedioPorId } from '../../../../services/storage';
 import { Remedio } from '../../../../types';
 
@@ -26,8 +27,18 @@ export default function EditarRemedio() {
   }, [id]);
 
   async function salvarAlteracoes(dados: RemedioDoFormulario) {
+    const fotoNova = guardarFoto(dados.foto ?? '');
+
     // A mesma id de antes: é ela que diz qual remédio está sendo trocado.
-    await atualizarRemedio({ id: id, ...dados });
+    await atualizarRemedio({ id: id, ...dados, foto: fotoNova });
+
+    // Se a foto foi trocada ou removida, a antiga não é mais de ninguém.
+    // Só apaga depois de salvar: se algo der errado antes, o remédio ainda
+    // aponta para a foto antiga, e ela precisa continuar existindo.
+    const fotoAntiga = remedio !== null && remedio.foto ? remedio.foto : '';
+    if (fotoAntiga !== fotoNova) {
+      apagarFoto(fotoAntiga);
+    }
 
     if (Platform.OS === 'android') {
       ToastAndroid.show('Alterações salvas', ToastAndroid.SHORT);

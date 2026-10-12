@@ -1,8 +1,8 @@
-import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CORES } from '../constants/cores';
 import { FONTES, TAMANHOS } from '../constants/fontes';
 import { Remedio } from '../types';
+import { FotoDoRemedio } from './FotoDoRemedio';
 
 export interface CardRemedioProps {
   remedio: Remedio;
@@ -15,10 +15,9 @@ export function CardRemedio(props: CardRemedioProps) {
       onPress={props.aoPressionar}
       style={({ pressed }) => [styles.caixa, pressed ? styles.pressionado : null]}
     >
-      {/* O espaço da foto do remédio. Por enquanto um ícone; a foto da
-          caixa entra aqui quando a câmera for adicionada. */}
+      {/* A foto da caixa, ou o ícone de remédio quando não tem foto. */}
       <View style={styles.foto}>
-        <MaterialIcons name="medication" size={28} color={CORES.lavanda} />
+        <FotoDoRemedio foto={props.remedio.foto} tamanho={56} />
       </View>
 
       <View style={styles.conteudo}>
@@ -60,12 +59,6 @@ const styles = StyleSheet.create({
     backgroundColor: CORES.lavandaClara,
   },
   foto: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: CORES.lavandaClara,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 14,
   },
   conteudo: {

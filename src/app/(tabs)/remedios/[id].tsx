@@ -3,7 +3,10 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   Alert,
+  Image,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,10 +14,12 @@ import {
   View,
 } from 'react-native';
 import { Botao } from '../../../components/Botao';
+import { FotoDoRemedio } from '../../../components/FotoDoRemedio';
 import { CORES } from '../../../constants/cores';
 import { FONTES, TAMANHOS } from '../../../constants/fontes';
 import { dataPorExtenso } from '../../../services/datas';
 import { situacaoDaDose } from '../../../services/doses';
+import { apagarFoto } from '../../../services/fotos';
 import { doseValeHoje } from '../../../services/pet';
 import {
   buscarRemedioPorId,
@@ -48,6 +53,8 @@ export default function DetalheRemedio() {
   // Diferencia "ainda carregando" de "não existe": sem isso, a tela
   // mostraria "remédio não encontrado" por um instante ao abrir.
   const [carregou, setCarregou] = useState(false);
+  // Se a foto está aberta em tela cheia.
+  const [fotoAmpliada, setFotoAmpliada] = useState(false);
 
   // useFocusEffect, e não useEffect: ao voltar da tela de editar, esta
   // precisa mostrar o remédio já alterado.
@@ -89,6 +96,8 @@ export default function DetalheRemedio() {
     }
 
     await excluirRemedio(remedio.id);
+    // Sem o remédio, a foto dele não aparece em lugar nenhum: libera espaço.
+    apagarFoto(remedio.foto ?? '');
 
     if (Platform.OS === 'android') {
       ToastAndroid.show(remedio.nome + ' excluído', ToastAndroid.SHORT);
@@ -124,10 +133,20 @@ export default function DetalheRemedio() {
   return (
     <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
       <View style={styles.topo}>
-        {/* Espaço da foto do remédio; a câmera entra numa etapa seguinte. */}
-        <View style={styles.foto}>
-          <MaterialIcons name="medication" size={44} color={CORES.lavanda} />
-        </View>
+        {/* Tocar na foto abre ela grande, para ler a receita ou a caixa.
+            Sem foto, o toque não faz nada (disabled). */}
+        <Pressable
+          style={styles.foto}
+          onPress={() => setFotoAmpliada(true)}
+          disabled={!remedio.foto}
+        >
+          <FotoDoRemedio foto={remedio.foto} tamanho={96} />
+          {remedio.foto ? (
+            <View style={styles.lupa}>
+              <MaterialIcons name="zoom-in" size={18} color={CORES.ameixa} />
+            </View>
+          ) : null}
+        </Pressable>
 
         <View style={styles.identificacao}>
           <Text style={styles.nome}>{remedio.nome}</Text>
@@ -188,6 +207,27 @@ export default function DetalheRemedio() {
         </View>
       </View>
 
+      {/* A foto em tela cheia. Fecha tocando em qualquer lugar ou com o
+          botão de voltar do Android (onRequestClose). */}
+      <Modal
+        visible={fotoAmpliada}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFotoAmpliada(false)}
+      >
+        <Pressable style={styles.veu} onPress={() => setFotoAmpliada(false)}>
+          {remedio.foto ? (
+            // contain mostra a foto inteira, sem cortar nada.
+            <Image
+              source={{ uri: remedio.foto }}
+              style={styles.fotoGrande}
+              resizeMode="contain"
+            />
+          ) : null}
+          <Text style={styles.fecharFoto}>Toque para fechar</Text>
+        </Pressable>
+      </Modal>
+
       <View style={styles.acoes}>
         <Botao
           titulo="Editar remédio"
@@ -217,13 +257,35 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   foto: {
-    width: 96,
-    height: 96,
-    borderRadius: 20,
-    backgroundColor: CORES.lavandaClara,
+    marginRight: 16,
+  },
+  // O selinho de lupa no canto da foto: avisa que dá para ampliar.
+  lupa: {
+    position: 'absolute',
+    right: 4,
+    bottom: 4,
+    backgroundColor: CORES.branco,
+    borderRadius: 999,
+    padding: 3,
+  },
+  veu: {
+    flex: 1,
+    backgroundColor: CORES.veu,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    padding: 20,
+  },
+  fotoGrande: {
+    width: '100%',
+    // aspectRatio 1: a altura é igual à largura, como a foto quadrada.
+    aspectRatio: 1,
+    borderRadius: 20,
+  },
+  fecharFoto: {
+    fontFamily: FONTES.textoForte,
+    fontSize: TAMANHOS.texto,
+    color: CORES.branco,
+    marginTop: 16,
   },
   identificacao: {
     flex: 1,
