@@ -103,6 +103,55 @@ export async function salvarRemedio(remedio: Remedio): Promise<void> {
   }
 }
 
+export async function buscarRemedioPorId(id: string): Promise<Remedio | null> {
+  const lista = await listarRemedios();
+
+  for (let i = 0; i < lista.length; i++) {
+    if (lista[i].id === id) {
+      return lista[i];
+    }
+  }
+
+  return null;
+}
+
+// Troca o remédio que tem o mesmo id pela versão editada. O id não muda:
+// ele é o instante do cadastro, e o pet usa isso para saber desde quando o
+// remédio existe.
+export async function atualizarRemedio(remedioEditado: Remedio): Promise<void> {
+  try {
+    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_REMEDIOS);
+    const lista = await listarRemedios();
+
+    for (let i = 0; i < lista.length; i++) {
+      if (lista[i].id === remedioEditado.id) {
+        lista[i] = remedioEditado;
+      }
+    }
+
+    await AsyncStorage.setItem(chave, JSON.stringify(lista));
+  } catch (erro) {
+    console.log('Erro ao atualizar remédio', erro);
+  }
+}
+
+// As tomadas desse remédio NÃO são apagadas: elas são o histórico do que
+// já aconteceu, e o histórico não deve mudar porque o tratamento acabou.
+export async function excluirRemedio(id: string): Promise<void> {
+  try {
+    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_REMEDIOS);
+    const lista = await listarRemedios();
+
+    // filter monta uma lista nova só com os remédios que passam no teste:
+    // todos, menos o que tem esse id.
+    const restantes = lista.filter((remedio) => remedio.id !== id);
+
+    await AsyncStorage.setItem(chave, JSON.stringify(restantes));
+  } catch (erro) {
+    console.log('Erro ao excluir remédio', erro);
+  }
+}
+
 export async function listarTomadas(): Promise<Tomada[]> {
   try {
     const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_TOMADAS);
@@ -150,6 +199,20 @@ export async function salvarPet(pet: Pet): Promise<void> {
     await AsyncStorage.setItem(chave, JSON.stringify(pet));
   } catch (erro) {
     console.log('Erro ao salvar pet', erro);
+  }
+}
+
+// O Cadastro precisa salvar o pet de uma conta que ainda NÃO está logada.
+// As outras funções montam a chave a partir da sessão; esta recebe o
+// e-mail por parâmetro, porque ainda não existe sessão nesse momento.
+export async function salvarPetDaConta(email: string, pet: Pet): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      INICIO_DA_CHAVE_PET + ':' + email,
+      JSON.stringify(pet)
+    );
+  } catch (erro) {
+    console.log('Erro ao salvar pet da conta', erro);
   }
 }
 

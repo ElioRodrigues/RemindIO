@@ -4,6 +4,7 @@ import {
   dataDeOntem,
   horarioEmMinutos,
   inicioDoDiaDeHoje,
+  instanteDoHorarioDeHoje,
   minutosDeAgora,
 } from './datas';
 
@@ -19,6 +20,15 @@ const DESCONTO_POR_ATRASO = 5;
 // Faixas do desenho do pet. São as mesmas da cor da barra de saúde.
 const SAUDE_DE_PET_SAUDAVEL = 60;
 const SAUDE_DE_PET_DOENTE = 30;
+
+// Uma dose de hoje só vale se o horário dela vem DEPOIS do cadastro do
+// remédio. Quem cadastra às 21:00 um remédio das 07:00 e das 23:00 começa
+// pela dose das 23:00: a das 07:00 já tinha passado quando o remédio nem
+// existia no app, e não pode ser cobrada nem aparecer como atrasada.
+export function doseValeHoje(remedio: Remedio, horario: string): boolean {
+  // O id do remédio é o instante do cadastro, em milissegundos.
+  return instanteDoHorarioDeHoje(horario) >= Number(remedio.id);
+}
 
 // Quanto essa dose custou de saúde: nada se foi tomada no horário,
 // um pouco se foi tomada atrasada, e o máximo se não foi tomada.
@@ -71,7 +81,9 @@ export function calcularSaude(remedios: Remedio[], tomadas: Tomada[]): number {
       const jaVenceu =
         minutosDeAgora() > horarioEmMinutos(horario) + TOLERANCIA_EM_MINUTOS;
 
-      if (jaVenceu) {
+      // E só se o remédio já existia no horário da dose. A tela de Início
+      // usa a mesma função para montar a cartela, então os dois concordam.
+      if (jaVenceu && doseValeHoje(remedio, horario)) {
         saude =
           saude - descontoDaDose(remedio.id, horario, dataDeHoje(), tomadas);
       }

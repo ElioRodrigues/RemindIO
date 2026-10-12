@@ -41,6 +41,13 @@ export function inicioDoDiaDeHoje(): number {
   return agora.getTime();
 }
 
+// O instante (em milissegundos) em que um horário acontece hoje: "08:30"
+// vira a meia-noite de hoje mais 8h30. Serve para comparar uma dose com o
+// instante em que o remédio foi cadastrado (o id dele).
+export function instanteDoHorarioDeHoje(horario: string): number {
+  return inicioDoDiaDeHoje() + horarioEmMinutos(horario) * 60 * 1000;
+}
+
 // Transforma "08:30" em 510, para comparar horários com números.
 export function horarioEmMinutos(horario: string): number {
   const partes = horario.split(':');
@@ -115,4 +122,14 @@ export function saudacao(): string {
     return 'Boa tarde';
   }
   return 'Boa noite';
+}
+
+// Transforma um instante em milissegundos em "11/10/2026". Serve para mostrar
+// quando o remédio foi cadastrado, já que o id dele é esse instante.
+export function dataPorExtenso(milissegundos: number): string {
+  const data = new Date(milissegundos);
+  const dia = doisDigitos(data.getDate());
+  const mes = doisDigitos(data.getMonth() + 1);
+
+  return dia + '/' + mes + '/' + data.getFullYear();
 }

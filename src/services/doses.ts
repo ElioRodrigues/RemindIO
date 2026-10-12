@@ -1,6 +1,10 @@
 import { Dose, Remedio, SituacaoDaDose, Tomada } from '../types';
-import { dataDeHoje, horarioEmMinutos, minutosDeAgora } from './datas';
-import { TOLERANCIA_EM_MINUTOS } from './pet';
+import {
+  dataDeHoje,
+  horarioEmMinutos,
+  minutosDeAgora,
+} from './datas';
+import { TOLERANCIA_EM_MINUTOS, doseValeHoje } from './pet';
 
 // Quanto tempo antes do horário o usuário já pode confirmar a dose.
 // Sem esse limite, dava para marcar às 08:00 a dose das 20:00.
@@ -14,7 +18,9 @@ export function montarDosesDeHoje(remedios: Remedio[]): Dose[] {
 
   for (let i = 0; i < remedios.length; i++) {
     for (let j = 0; j < remedios[i].horarios.length; j++) {
-      doses.push({ remedio: remedios[i], horario: remedios[i].horarios[j] });
+      if (doseValeHoje(remedios[i], remedios[i].horarios[j])) {
+        doses.push({ remedio: remedios[i], horario: remedios[i].horarios[j] });
+      }
     }
   }
 
