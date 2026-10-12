@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Botao } from '../../../components/Botao';
 import { CardRemedio } from '../../../components/CardRemedio';
 import { CORES } from '../../../constants/cores';
@@ -26,13 +26,6 @@ export default function ListaRemedios() {
     }, [])
   );
 
-  function mostrarDetalhes(remedio: Remedio) {
-    const observacao =
-      remedio.observacao === '' ? 'Sem observação.' : remedio.observacao;
-
-    Alert.alert(remedio.nome, remedio.dosagem + '\n\n' + observacao);
-  }
-
   return (
     <View style={styles.tela}>
       <FlatList
@@ -48,7 +41,8 @@ export default function ListaRemedios() {
         renderItem={({ item }) => (
           <CardRemedio
             remedio={item}
-            aoPressionar={() => mostrarDetalhes(item)}
+            // Abre a tela de detalhe deste remédio: /remedios/<id>
+            aoPressionar={() => router.push('/remedios/' + item.id)}
           />
         )}
       />
