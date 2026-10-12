@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   Platform,
@@ -34,6 +35,7 @@ import {
   listarRemedios,
   listarTomadas,
   registrarTomada,
+  removerTomada,
   salvarPet,
 } from '../../services/storage';
 import { Dose, Pet, Remedio, Tomada } from '../../types';
@@ -124,6 +126,28 @@ export default function Inicio() {
     }
   }
 
+  // Desfazer pede confirmação: o toque em "Desfazer" também pode ser um
+  // engano, e aí a pessoa perderia a dose que tinha marcado certo.
+  function confirmarDesfazer(dose: Dose) {
+    Alert.alert(
+      'Desfazer a dose das ' + dose.horario + '?',
+      dose.remedio.nome + ' volta a aparecer como não tomada.',
+      [
+        { text: 'Cancelar' },
+        { text: 'Desfazer', onPress: () => desfazerDose(dose) },
+      ]
+    );
+  }
+
+  async function desfazerDose(dose: Dose) {
+    await removerTomada(dose.remedio.id, dose.horario, dataDeHoje());
+
+    // Relê as tomadas: a bolha volta ao estado de antes, e a saúde do pet,
+    // que é calculada a partir delas, se corrige sozinha.
+    const listaAtualizada = await listarTomadas();
+    setTomadas(listaAtualizada);
+  }
+
   // A saúde sai do histórico, então já reflete qualquer dose vencida agora.
   const saude = calcularSaude(remedios, tomadas);
   const estado = estadoDoPet(saude);
@@ -195,7 +219,15 @@ export default function Inicio() {
             </Text>
             <Botao
               titulo="Cadastrar remédio"
-              aoPressionar={() => router.push('/remedios/novo')}
+              // origem=hoje avisa o formulário para voltar a esta tela
+              // depois de salvar, e não para a lista de remédios.
+              // withAnchor põe a lista (o initialRouteName da pilha de
+              // remédios) embaixo do formulário. Sem ele, se a aba Remédios
+              // nunca foi aberta, a pilha nascia só com o formulário, sem
+              // seta de voltar.
+              aoPressionar={() =>
+                router.push('/remedios/novo?origem=hoje', { withAnchor: true })
+              }
             />
           </View>
         }
@@ -210,6 +242,7 @@ export default function Inicio() {
             )}
             ultima={index === doses.length - 1}
             aoConfirmar={() => confirmarDose(item)}
+            aoDesfazer={() => confirmarDesfazer(item)}
           />
         )}
       />

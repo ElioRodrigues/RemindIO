@@ -1,6 +1,14 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { Formik } from 'formik';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import * as Yup from 'yup';
 import { CORES } from '../constants/cores';
 import { FONTES } from '../constants/fontes';
@@ -143,6 +151,12 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
     props.remedio !== undefined && props.remedio.foto ? props.remedio.foto : ''
   );
 
+  // A altura do cabeçalho da navegação (a faixa com a seta e o título).
+  // O KeyboardAvoidingView mede a própria posição a partir de baixo do
+  // cabeçalho, e não do topo da tela: sem somar essa altura, ele calcula
+  // um espaço menor que o teclado e o campo de baixo continua escondido.
+  const alturaDoCabecalho = useHeaderHeight();
+
   async function enviar(campos: CamposDoFormulario) {
     let listaDeHorarios: string[] = [];
     let intervaloEmHoras = 0;
@@ -169,133 +183,144 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
   }
 
   return (
-    <ScrollView
+    // No SDK 54 o Android desenha o app de ponta a ponta (edge-to-edge), e
+    // a tela não encolhe mais sozinha quando o teclado abre: o teclado
+    // ficava POR CIMA do campo Observação. O KeyboardAvoidingView mede o
+    // teclado e põe um espaço (padding) embaixo do mesmo tamanho, então o
+    // ScrollView encolhe e dá para rolar até o campo.
+    <KeyboardAvoidingView
       style={styles.tela}
-      contentContainerStyle={styles.conteudo}
-      keyboardShouldPersistTaps="handled"
+      behavior="padding"
+      keyboardVerticalOffset={alturaDoCabecalho}
     >
-      <Formik
-        initialValues={camposDoRemedio(props.remedio)}
-        validationSchema={modo === 'fixo' ? regrasDoModoFixo : regrasDoModoCiclo}
-        onSubmit={enviar}
+      <ScrollView
+        style={styles.tela}
+        contentContainerStyle={styles.conteudo}
+        keyboardShouldPersistTaps="handled"
       >
-        {({
-          values,
-          errors,
-          touched,
-          handleChange,
-          handleSubmit,
-          setFieldTouched,
-          isSubmitting,
-        }) => (
-          <>
-            <CampoFoto foto={foto} aoMudarFoto={setFoto} />
+        <Formik
+          initialValues={camposDoRemedio(props.remedio)}
+          validationSchema={modo === 'fixo' ? regrasDoModoFixo : regrasDoModoCiclo}
+          onSubmit={enviar}
+        >
+          {({
+            values,
+            errors,
+            touched,
+            handleChange,
+            handleSubmit,
+            setFieldTouched,
+            isSubmitting,
+          }) => (
+            <>
+              <CampoFoto foto={foto} aoMudarFoto={setFoto} />
 
-            <CampoTexto
-              rotulo="Nome do remédio"
-              valor={values.nome}
-              aoMudarTexto={handleChange('nome')}
-              aoSair={() => setFieldTouched('nome')}
-              erro={touched.nome ? errors.nome : undefined}
-              placeholder="Losartana"
-              capitalizar="sentences"
-            />
-
-            <CampoTexto
-              rotulo="Dosagem"
-              valor={values.dosagem}
-              aoMudarTexto={handleChange('dosagem')}
-              aoSair={() => setFieldTouched('dosagem')}
-              erro={touched.dosagem ? errors.dosagem : undefined}
-              placeholder="50 mg"
-            />
-
-            <Text style={styles.rotulo}>Como são os horários?</Text>
-
-            {/* Controle segmentado: duas opções lado a lado, numa faixa só,
-                e a escolhida fica destacada em branco. Deixa claro que é
-                uma escolha entre as duas, coisa que dois botões soltos não
-                deixavam. */}
-            <View style={styles.seletor}>
-              <Pressable
-                style={[styles.opcao, modo === 'fixo' ? styles.opcaoAtiva : null]}
-                onPress={() => setModo('fixo')}
-              >
-                <Text style={styles.textoDaOpcao}>Horários fixos</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.opcao, modo === 'ciclo' ? styles.opcaoAtiva : null]}
-                onPress={() => setModo('ciclo')}
-              >
-                <Text style={styles.textoDaOpcao}>A cada X horas</Text>
-              </Pressable>
-            </View>
-
-            {modo === 'fixo' ? (
               <CampoTexto
-                rotulo="Horários"
-                valor={values.horarios}
-                aoMudarTexto={handleChange('horarios')}
-                aoSair={() => setFieldTouched('horarios')}
-                erro={touched.horarios ? errors.horarios : undefined}
-                placeholder="08:00, 20:00"
-                dica="Separe os horários por vírgula."
+                rotulo="Nome do remédio"
+                valor={values.nome}
+                aoMudarTexto={handleChange('nome')}
+                aoSair={() => setFieldTouched('nome')}
+                erro={touched.nome ? errors.nome : undefined}
+                placeholder="Ex.: Losartana"
+                capitalizar="sentences"
               />
-            ) : (
-              <>
+
+              <CampoTexto
+                rotulo="Dosagem"
+                valor={values.dosagem}
+                aoMudarTexto={handleChange('dosagem')}
+                aoSair={() => setFieldTouched('dosagem')}
+                erro={touched.dosagem ? errors.dosagem : undefined}
+                placeholder="Ex.: 50 mg"
+              />
+
+              <Text style={styles.rotulo}>Como são os horários?</Text>
+
+              {/* Controle segmentado: duas opções lado a lado, numa faixa só,
+                  e a escolhida fica destacada em branco. Deixa claro que é
+                  uma escolha entre as duas, coisa que dois botões soltos não
+                  deixavam. */}
+              <View style={styles.seletor}>
+                <Pressable
+                  style={[styles.opcao, modo === 'fixo' ? styles.opcaoAtiva : null]}
+                  onPress={() => setModo('fixo')}
+                >
+                  <Text style={styles.textoDaOpcao}>Horários fixos</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.opcao, modo === 'ciclo' ? styles.opcaoAtiva : null]}
+                  onPress={() => setModo('ciclo')}
+                >
+                  <Text style={styles.textoDaOpcao}>A cada X horas</Text>
+                </Pressable>
+              </View>
+
+              {modo === 'fixo' ? (
                 <CampoTexto
-                  rotulo="Primeiro horário"
-                  valor={values.horaInicial}
-                  aoMudarTexto={handleChange('horaInicial')}
-                  aoSair={() => setFieldTouched('horaInicial')}
-                  erro={touched.horaInicial ? errors.horaInicial : undefined}
-                  placeholder="08:00"
+                  rotulo="Horários"
+                  valor={values.horarios}
+                  aoMudarTexto={handleChange('horarios')}
+                  aoSair={() => setFieldTouched('horarios')}
+                  erro={touched.horarios ? errors.horarios : undefined}
+                  placeholder="Ex.: 08:00, 20:00"
+                  dica="Separe os horários por vírgula."
                 />
+              ) : (
+                <>
+                  <CampoTexto
+                    rotulo="Primeiro horário"
+                    valor={values.horaInicial}
+                    aoMudarTexto={handleChange('horaInicial')}
+                    aoSair={() => setFieldTouched('horaInicial')}
+                    erro={touched.horaInicial ? errors.horaInicial : undefined}
+                    placeholder="Ex.: 08:00"
+                  />
 
-                <CampoTexto
-                  rotulo="A cada quantas horas?"
-                  valor={values.intervalo}
-                  aoMudarTexto={handleChange('intervalo')}
-                  aoSair={() => setFieldTouched('intervalo')}
-                  erro={touched.intervalo ? errors.intervalo : undefined}
-                  tipoTeclado="numeric"
-                  placeholder="8"
-                />
+                  <CampoTexto
+                    rotulo="A cada quantas horas?"
+                    valor={values.intervalo}
+                    aoMudarTexto={handleChange('intervalo')}
+                    aoSair={() => setFieldTouched('intervalo')}
+                    erro={touched.intervalo ? errors.intervalo : undefined}
+                    tipoTeclado="numeric"
+                    placeholder="Ex.: 8"
+                  />
 
-                {/* Mostra os horários calculados antes de salvar. */}
-                {values.horaInicial !== '' && values.intervalo !== '' ? (
-                  <Text style={styles.previa}>
-                    Vai lembrar às{' '}
-                    {horariosDoCiclo(
-                      values.horaInicial,
-                      Number(values.intervalo)
-                    ).join(', ')}
-                  </Text>
-                ) : null}
-              </>
-            )}
+                  {/* Mostra os horários calculados antes de salvar. */}
+                  {values.horaInicial !== '' && values.intervalo !== '' ? (
+                    <Text style={styles.previa}>
+                      Vai lembrar às{' '}
+                      {horariosDoCiclo(
+                        values.horaInicial,
+                        Number(values.intervalo)
+                      ).join(', ')}
+                    </Text>
+                  ) : null}
+                </>
+              )}
 
-            <CampoTexto
-              rotulo="Observação"
-              valor={values.observacao}
-              aoMudarTexto={handleChange('observacao')}
-              aoSair={() => setFieldTouched('observacao')}
-              erro={touched.observacao ? errors.observacao : undefined}
-              placeholder="Tomar após as refeições"
-              capitalizar="sentences"
-              dica="Opcional."
-            />
+              <CampoTexto
+                rotulo="Observação"
+                valor={values.observacao}
+                aoMudarTexto={handleChange('observacao')}
+                aoSair={() => setFieldTouched('observacao')}
+                erro={touched.observacao ? errors.observacao : undefined}
+                placeholder="Ex.: Tomar após as refeições"
+                capitalizar="sentences"
+                dica="Opcional."
+              />
 
-            <Botao
-              titulo={props.tituloDoBotao}
-              aoPressionar={() => handleSubmit()}
-              desabilitado={isSubmitting}
-            />
-          </>
-        )}
-      </Formik>
-    </ScrollView>
+              <Botao
+                titulo={props.tituloDoBotao}
+                aoPressionar={() => handleSubmit()}
+                desabilitado={isSubmitting}
+              />
+            </>
+          )}
+        </Formik>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

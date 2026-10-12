@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -103,79 +104,84 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.tela}>
-      {/* ScrollView para o teclado não esconder os campos: com ele aberto,
-          dá para rolar até o botão. keyboardShouldPersistTaps deixa tocar
-          no botão sem precisar fechar o teclado antes. */}
-      <ScrollView
-        contentContainerStyle={styles.conteudo}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.marca}>
-          {/* O require é resolvido antes do app rodar, por isso o caminho
-              precisa estar escrito por extenso e não numa variável. */}
-          <Image
-            source={require('../../assets/logo.png')}
-            style={styles.logo}
-          />
-          <Text style={styles.nomeDoApp}>RemindIO</Text>
-          <Text style={styles.frase}>
-            Seus remédios na hora certa, e um pet que sente a diferença.
-          </Text>
-        </View>
-
-        <Formik
-          initialValues={valoresIniciais}
-          validationSchema={regrasDeValidacao}
-          onSubmit={entrar}
+      {/* O KeyboardAvoidingView abre espaço do tamanho do teclado (ver o
+          FormularioRemedio). Aqui não precisa somar o cabeçalho: o Login
+          não tem cabeçalho. */}
+      <KeyboardAvoidingView style={styles.tela} behavior="padding">
+        {/* ScrollView para o teclado não esconder os campos: com ele aberto,
+            dá para rolar até o botão. keyboardShouldPersistTaps deixa tocar
+            no botão sem precisar fechar o teclado antes. */}
+        <ScrollView
+          contentContainerStyle={styles.conteudo}
+          keyboardShouldPersistTaps="handled"
         >
-          {({
-            values,
-            errors,
-            touched,
-            handleChange,
-            handleSubmit,
-            setFieldTouched,
-            isSubmitting,
-          }) => (
-            <View>
-              <CampoTexto
-                rotulo="E-mail"
-                valor={values.email}
-                aoMudarTexto={handleChange('email')}
-                aoSair={() => setFieldTouched('email')}
-                // O erro só aparece depois que o usuário passou pelo campo.
-                erro={touched.email ? errors.email : undefined}
-                tipoTeclado="email-address"
-                placeholder="voce@email.com"
-              />
+          <View style={styles.marca}>
+            {/* O require é resolvido antes do app rodar, por isso o caminho
+                precisa estar escrito por extenso e não numa variável. */}
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+            />
+            <Text style={styles.nomeDoApp}>RemindIO</Text>
+            <Text style={styles.frase}>
+              Seus remédios na hora certa, e um pet que sente a diferença.
+            </Text>
+          </View>
 
-              <CampoTexto
-                rotulo="Senha"
-                valor={values.senha}
-                aoMudarTexto={handleChange('senha')}
-                aoSair={() => setFieldTouched('senha')}
-                erro={touched.senha ? errors.senha : undefined}
-                segredo
-                placeholder="Sua senha"
-              />
+          <Formik
+            initialValues={valoresIniciais}
+            validationSchema={regrasDeValidacao}
+            onSubmit={entrar}
+          >
+            {({
+              values,
+              errors,
+              touched,
+              handleChange,
+              handleSubmit,
+              setFieldTouched,
+              isSubmitting,
+            }) => (
+              <View>
+                <CampoTexto
+                  rotulo="E-mail"
+                  valor={values.email}
+                  aoMudarTexto={handleChange('email')}
+                  aoSair={() => setFieldTouched('email')}
+                  // O erro só aparece depois que o usuário passou pelo campo.
+                  erro={touched.email ? errors.email : undefined}
+                  tipoTeclado="email-address"
+                  placeholder="voce@email.com"
+                />
 
-              <View style={styles.espaco}>
+                <CampoTexto
+                  rotulo="Senha"
+                  valor={values.senha}
+                  aoMudarTexto={handleChange('senha')}
+                  aoSair={() => setFieldTouched('senha')}
+                  erro={touched.senha ? errors.senha : undefined}
+                  segredo
+                  placeholder="Sua senha"
+                />
+
+                <View style={styles.espaco}>
+                  <Botao
+                    titulo="Entrar"
+                    aoPressionar={() => handleSubmit()}
+                    desabilitado={isSubmitting}
+                  />
+                </View>
+
                 <Botao
-                  titulo="Entrar"
-                  aoPressionar={() => handleSubmit()}
-                  desabilitado={isSubmitting}
+                  titulo="Criar conta"
+                  variante="secundario"
+                  aoPressionar={() => router.push('/cadastro')}
                 />
               </View>
-
-              <Botao
-                titulo="Criar conta"
-                variante="secundario"
-                aoPressionar={() => router.push('/cadastro')}
-              />
-            </View>
-          )}
-        </Formik>
-      </ScrollView>
+            )}
+          </Formik>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

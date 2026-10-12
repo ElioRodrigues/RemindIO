@@ -14,6 +14,9 @@ import { ResumoDoDia } from '../../types';
 
 export default function Historico() {
   const [historico, setHistorico] = useState<ResumoDoDia[]>([]);
+  // Sem remédio nenhum, o histórico não "começa amanhã": ele nem começou.
+  // A mensagem da lista vazia muda conforme isso.
+  const [temRemedios, setTemRemedios] = useState(false);
 
   // useFocusEffect: ao confirmar doses ou cadastrar remédios e voltar, o
   // histórico precisa refletir isso. Com useEffect ficaria parado no valor
@@ -26,6 +29,7 @@ export default function Historico() {
 
         // A conta fica no service; a tela só guarda o resultado.
         setHistorico(montarHistorico(remedios, tomadas));
+        setTemRemedios(remedios.length > 0);
       }
 
       carregarHistorico();
@@ -67,8 +71,9 @@ export default function Historico() {
         ListHeaderComponent={historico.length > 0 ? resumo : null}
         ListEmptyComponent={
           <Text style={styles.vazio}>
-            O histórico começa amanhã. Cada dia que passa aparece aqui, com
-            quantas doses você tomou.
+            {temRemedios
+              ? 'O histórico começa amanhã. Cada dia que passa aparece aqui, com quantas doses você tomou.'
+              : 'Cadastre um remédio na aba Remédios. A partir do dia seguinte, cada dia aparece aqui com quantas doses você tomou.'}
           </Text>
         }
         renderItem={({ item }) => <DiaDoHistorico dia={item} />}

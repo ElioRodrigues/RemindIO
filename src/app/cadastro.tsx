@@ -1,7 +1,9 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { router } from 'expo-router';
 import { Formik } from 'formik';
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,6 +18,7 @@ import { FONTES, TAMANHOS } from '../constants/fontes';
 import {
   buscarUsuarioPorEmail,
   salvarPetDaConta,
+  salvarSessao,
   salvarUsuario,
 } from '../services/storage';
 
@@ -32,7 +35,10 @@ const valoresIniciais: DadosDoCadastro = {
   email: '',
   senha: '',
   confirmacao: '',
-  nomeDoPet: '',
+  // Já vem preenchido: antes era só um placeholder "Pipo", que parecia um
+  // valor digitado, e o formulário acusava "Dê um nome ao seu pet" num
+  // campo que a pessoa achava que estava preenchido. Quem quiser, troca.
+  nomeDoPet: 'Pipo',
 };
 
 const regrasDeValidacao = Yup.object({
@@ -58,6 +64,10 @@ const regrasDeValidacao = Yup.object({
 });
 
 export default function Cadastro() {
+  // Ver o porquê no FormularioRemedio: o KeyboardAvoidingView precisa da
+  // altura do cabeçalho para calcular o espaço do teclado.
+  const alturaDoCabecalho = useHeaderHeight();
+
   async function criarConta(dados: DadosDoCadastro) {
     // Guardamos o e-mail sempre do mesmo jeito, sem espaços e em minúsculas,
     // senão "Ana@email.com" e "ana@email.com" virariam duas contas.
@@ -84,100 +94,114 @@ export default function Cadastro() {
     // é salvo com o e-mail passado direto, e não pelo usuário logado.
     await salvarPetDaConta(email, { nome: dados.nomeDoPet.trim() });
 
+    // A pessoa acabou de digitar o e-mail e a senha: pedir de novo no Login
+    // seria trabalho à toa. A conta já entra logada, como o "Entrar" faz.
+    await salvarSessao(email);
+
     if (Platform.OS === 'android') {
-      ToastAndroid.show('Conta criada. Agora é só entrar.', ToastAndroid.SHORT);
+      ToastAndroid.show(
+        'Conta criada. Olá, ' + dados.nome.trim().split(' ')[0],
+        ToastAndroid.SHORT
+      );
     }
 
-    // back volta para o Login que já estava na pilha, em vez de empilhar
-    // outro. Com replace ficariam duas telas de Login, uma atrás da outra.
-    router.back();
+    // dismissAll fecha o Cadastro e volta ao Login, a primeira tela da
+    // pilha; o replace troca o Login pelo app. Assim o botão de voltar não
+    // leva de volta nem ao Cadastro nem ao Login.
+    router.dismissAll();
+    router.replace('/inicio');
   }
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.tela}
-      contentContainerStyle={styles.conteudo}
-      keyboardShouldPersistTaps="handled"
+      behavior="padding"
+      keyboardVerticalOffset={alturaDoCabecalho}
     >
-      <Text style={styles.intro}>
-        Seus remédios e seu pet ficam guardados neste aparelho, na sua conta.
-      </Text>
-
-      <Formik
-        initialValues={valoresIniciais}
-        validationSchema={regrasDeValidacao}
-        onSubmit={criarConta}
+      <ScrollView
+        style={styles.tela}
+        contentContainerStyle={styles.conteudo}
+        keyboardShouldPersistTaps="handled"
       >
-        {({
-          values,
-          errors,
-          touched,
-          handleChange,
-          handleSubmit,
-          setFieldTouched,
-          isSubmitting,
-        }) => (
-          <>
-            <CampoTexto
-              rotulo="Nome"
-              valor={values.nome}
-              aoMudarTexto={handleChange('nome')}
-              aoSair={() => setFieldTouched('nome')}
-              erro={touched.nome ? errors.nome : undefined}
-              placeholder="Como podemos te chamar?"
-              capitalizar="words"
-            />
+        <Text style={styles.intro}>
+          Seus remédios e seu pet ficam guardados neste aparelho, na sua conta.
+        </Text>
 
-            <CampoTexto
-              rotulo="E-mail"
-              valor={values.email}
-              aoMudarTexto={handleChange('email')}
-              aoSair={() => setFieldTouched('email')}
-              erro={touched.email ? errors.email : undefined}
-              tipoTeclado="email-address"
-              placeholder="voce@email.com"
-            />
+        <Formik
+          initialValues={valoresIniciais}
+          validationSchema={regrasDeValidacao}
+          onSubmit={criarConta}
+        >
+          {({
+            values,
+            errors,
+            touched,
+            handleChange,
+            handleSubmit,
+            setFieldTouched,
+            isSubmitting,
+          }) => (
+            <>
+              <CampoTexto
+                rotulo="Nome"
+                valor={values.nome}
+                aoMudarTexto={handleChange('nome')}
+                aoSair={() => setFieldTouched('nome')}
+                erro={touched.nome ? errors.nome : undefined}
+                placeholder="Como podemos te chamar?"
+                capitalizar="words"
+              />
 
-            <CampoTexto
-              rotulo="Senha"
-              valor={values.senha}
-              aoMudarTexto={handleChange('senha')}
-              aoSair={() => setFieldTouched('senha')}
-              erro={touched.senha ? errors.senha : undefined}
-              segredo
-              placeholder="Mínimo de 6 caracteres"
-            />
+              <CampoTexto
+                rotulo="E-mail"
+                valor={values.email}
+                aoMudarTexto={handleChange('email')}
+                aoSair={() => setFieldTouched('email')}
+                erro={touched.email ? errors.email : undefined}
+                tipoTeclado="email-address"
+                placeholder="voce@email.com"
+              />
 
-            <CampoTexto
-              rotulo="Repita a senha"
-              valor={values.confirmacao}
-              aoMudarTexto={handleChange('confirmacao')}
-              aoSair={() => setFieldTouched('confirmacao')}
-              erro={touched.confirmacao ? errors.confirmacao : undefined}
-              segredo
-              placeholder="A mesma senha"
-            />
+              <CampoTexto
+                rotulo="Senha"
+                valor={values.senha}
+                aoMudarTexto={handleChange('senha')}
+                aoSair={() => setFieldTouched('senha')}
+                erro={touched.senha ? errors.senha : undefined}
+                segredo
+                placeholder="Mínimo de 6 caracteres"
+              />
 
-            <CampoTexto
-              rotulo="Nome do seu pet"
-              valor={values.nomeDoPet}
-              aoMudarTexto={handleChange('nomeDoPet')}
-              aoSair={() => setFieldTouched('nomeDoPet')}
-              erro={touched.nomeDoPet ? errors.nomeDoPet : undefined}
-              placeholder="Pipo"
-              capitalizar="words"
-              dica="Ele fica saudável quando você toma os remédios na hora."
-            />
+              <CampoTexto
+                rotulo="Repita a senha"
+                valor={values.confirmacao}
+                aoMudarTexto={handleChange('confirmacao')}
+                aoSair={() => setFieldTouched('confirmacao')}
+                erro={touched.confirmacao ? errors.confirmacao : undefined}
+                segredo
+                placeholder="A mesma senha"
+              />
 
-            <Botao
-              titulo="Criar conta"
-              aoPressionar={() => handleSubmit()}
-              desabilitado={isSubmitting}
-            />
-          </>
-        )}
-      </Formik>
-    </ScrollView>
+              <CampoTexto
+                rotulo="Nome do seu pet"
+                valor={values.nomeDoPet}
+                aoMudarTexto={handleChange('nomeDoPet')}
+                aoSair={() => setFieldTouched('nomeDoPet')}
+                erro={touched.nomeDoPet ? errors.nomeDoPet : undefined}
+                capitalizar="words"
+                dica="Ele fica saudável quando você toma os remédios na hora."
+              />
+
+              <Botao
+                titulo="Criar conta"
+                aoPressionar={() => handleSubmit()}
+                desabilitado={isSubmitting}
+              />
+            </>
+          )}
+        </Formik>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

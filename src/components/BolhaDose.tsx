@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CORES } from '../constants/cores';
 import { FONTES, TAMANHOS } from '../constants/fontes';
 import { Dose, SituacaoDaDose } from '../types';
@@ -14,6 +14,8 @@ export interface BolhaDoseProps {
   // A última dose do dia não tem a linha que liga à próxima bolha.
   ultima: boolean;
   aoConfirmar(): void;
+  // Para quem tocou em "Tomei" por engano.
+  aoDesfazer(): void;
 }
 
 // O que aparece embaixo do nome do remédio em cada situação.
@@ -106,6 +108,22 @@ export function BolhaDose(props: BolhaDoseProps) {
           <Botao titulo="Tomei" compacto aoPressionar={props.aoConfirmar} />
         </View>
       ) : null}
+
+      {/* Na dose já tomada, um "Desfazer" discreto, só texto: ele existe
+          para corrigir um engano, e não deve competir com o "Tomei" das
+          outras doses. */}
+      {props.situacao === 'tomada' ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.acao,
+            styles.desfazer,
+            pressed ? styles.desfazerPressionado : null,
+          ]}
+          onPress={props.aoDesfazer}
+        >
+          <Text style={styles.textoDesfazer}>Desfazer</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -168,6 +186,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingBottom: 22,
     marginLeft: 8,
+  },
+  desfazer: {
+    // Área de toque de pelo menos 44 de altura, mesmo sendo só um texto.
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingBottom: 0,
+    alignSelf: 'center',
+    marginBottom: 22,
+    borderRadius: 999,
+  },
+  desfazerPressionado: {
+    backgroundColor: CORES.lavandaClara,
+  },
+  textoDesfazer: {
+    fontFamily: FONTES.textoForte,
+    fontSize: TAMANHOS.detalhe,
+    color: CORES.ameixaSuave,
+    textDecorationLine: 'underline',
   },
 });
 

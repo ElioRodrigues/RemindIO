@@ -50,7 +50,10 @@ export function CampoTexto(props: CampoTextoProps) {
         placeholder={props.placeholder}
         // O placeholder é só um exemplo (o rótulo acima diz o que é o campo),
         // então fica mais claro, para não parecer um valor já digitado.
-        placeholderTextColor={CORES.lavanda}
+        // ameixaSuave, e não lavanda: a lavanda tem contraste de 2,6:1 e o
+        // cores.ts proíbe usá-la em texto. Para não parecer um valor já
+        // digitado, os exemplos dos placeholders começam com "Ex.:".
+        placeholderTextColor={CORES.ameixaSuave}
         autoCapitalize={props.capitalizar ?? 'none'}
       />
 

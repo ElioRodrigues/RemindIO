@@ -2,10 +2,12 @@ import { Stack } from 'expo-router';
 import { CORES } from '../../../constants/cores';
 import { CABECALHO_DO_APP } from '../../../constants/navegacao';
 
-// A lista (index) é sempre a primeira tela desta pilha. Sem isso, abrir
+// A lista (index) é a primeira tela desta pilha. Sem isso, abrir
 // "Novo remédio" direto da tela Hoje criava uma pilha só com o formulário:
 // ao salvar, o back voltava para Hoje e o formulário ficava preso na aba
 // Remédios, ainda preenchido e sem seta de voltar.
+// Atenção: o Expo Router só usa este initialRouteName quando a navegação
+// pede, com router.push(..., { withAnchor: true }) (ver a tela Hoje).
 export const unstable_settings = {
   initialRouteName: 'index',
 };

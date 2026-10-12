@@ -178,6 +178,33 @@ export async function registrarTomada(tomada: Tomada): Promise<void> {
   }
 }
 
+// Apaga a confirmação de uma dose: é o "Desfazer" de quem tocou em "Tomei"
+// por engano. A dose é achada pelos três campos que a identificam.
+export async function removerTomada(
+  remedioId: string,
+  horario: string,
+  data: string
+): Promise<void> {
+  try {
+    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_TOMADAS);
+    const lista = await listarTomadas();
+
+    // filter fica com todas as tomadas MENOS a que tem os três iguais.
+    const restantes = lista.filter(
+      (tomada) =>
+        !(
+          tomada.remedioId === remedioId &&
+          tomada.horario === horario &&
+          tomada.data === data
+        )
+    );
+
+    await AsyncStorage.setItem(chave, JSON.stringify(restantes));
+  } catch (erro) {
+    console.log('Erro ao remover tomada', erro);
+  }
+}
+
 export async function lerPet(): Promise<Pet | null> {
   try {
     const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_PET);
