@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { CORES } from '../constants/cores';
+import { FONTES, TAMANHOS } from '../constants/fontes';
 
 export interface CampoTextoProps {
   rotulo: string;
@@ -8,59 +10,97 @@ export interface CampoTextoProps {
   // Avisa a tela que o usuário saiu do campo, para ela marcar como "tocado".
   aoSair?(): void;
   erro?: string;
+  // Uma frase de ajuda embaixo do campo, que some quando aparece um erro.
+  dica?: string;
   segredo?: boolean;
   tipoTeclado?: 'default' | 'email-address' | 'numeric';
   placeholder?: string;
+  // Nomes e frases começam com maiúscula; e-mail e senha não.
+  capitalizar?: 'none' | 'sentences' | 'words';
 }
 
 export function CampoTexto(props: CampoTextoProps) {
+  // Guarda se o campo está com o cursor, só para mudar a cor da borda.
+  // É estado da aparência do campo, por isso fica aqui e não na tela.
+  const [focado, setFocado] = useState(false);
+
+  function aoSairDoCampo() {
+    setFocado(false);
+    // O ? antes do () só chama a função se a tela tiver mandado uma.
+    props.aoSair?.();
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.rotulo}>{props.rotulo}</Text>
 
       <TextInput
-        style={[styles.campo, props.erro ? styles.campoComErro : null]}
+        style={[
+          styles.campo,
+          focado ? styles.campoFocado : null,
+          // O erro vem por último para vencer: a borda de erro tem prioridade.
+          props.erro ? styles.campoComErro : null,
+        ]}
         value={props.valor}
         onChangeText={props.aoMudarTexto}
-        onBlur={props.aoSair}
+        onFocus={() => setFocado(true)}
+        onBlur={aoSairDoCampo}
         secureTextEntry={props.segredo}
         keyboardType={props.tipoTeclado}
         placeholder={props.placeholder}
-        placeholderTextColor={CORES.roxo}
-        autoCapitalize="none"
+        // O placeholder é só um exemplo (o rótulo acima diz o que é o campo),
+        // então fica mais claro, para não parecer um valor já digitado.
+        placeholderTextColor={CORES.lavanda}
+        autoCapitalize={props.capitalizar ?? 'none'}
       />
 
-      {/* A mensagem só aparece quando a tela mandou um erro preenchido. */}
-      {props.erro ? <Text style={styles.erro}>{props.erro}</Text> : null}
+      {/* Ou o erro, ou a dica: os dois juntos disputariam a atenção. */}
+      {props.erro ? (
+        <Text style={styles.erro}>{props.erro}</Text>
+      ) : props.dica ? (
+        <Text style={styles.dica}>{props.dica}</Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   rotulo: {
-    fontSize: 14,
-    color: CORES.noite,
-    marginBottom: 4,
+    fontFamily: FONTES.textoForte,
+    fontSize: 15,
+    color: CORES.ameixa,
+    marginBottom: 6,
   },
   campo: {
-    borderWidth: 1,
-    borderColor: CORES.roxo,
-    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: CORES.lavandaClara,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    fontSize: 16,
-    color: CORES.noite,
-    backgroundColor: CORES.gelo,
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.texto,
+    color: CORES.ameixa,
+    backgroundColor: CORES.branco,
+  },
+  campoFocado: {
+    borderColor: CORES.lavanda,
   },
   campoComErro: {
-    borderColor: CORES.coral,
+    borderColor: CORES.framboesa,
   },
   erro: {
-    color: CORES.coral,
-    fontSize: 12,
-    marginTop: 4,
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.detalhe,
+    color: CORES.framboesa,
+    marginTop: 6,
+  },
+  dica: {
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.detalhe,
+    color: CORES.ameixaSuave,
+    marginTop: 6,
   },
 });

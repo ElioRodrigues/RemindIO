@@ -1,11 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { CORES } from '../constants/cores';
+import { FONTES, TAMANHOS } from '../constants/fontes';
 
 export interface BotaoProps {
   titulo: string;
   aoPressionar(): void;
   variante?: 'primario' | 'secundario';
   desabilitado?: boolean;
+  // Versão menor, para caber ao lado de um texto (o "Tomei" da cartela).
+  compacto?: boolean;
 }
 
 export function Botao(props: BotaoProps) {
@@ -13,54 +16,70 @@ export function Botao(props: BotaoProps) {
   const ehSecundario = props.variante === 'secundario';
 
   return (
-    <Pressable onPress={props.aoPressionar} disabled={props.desabilitado}>
-      <View
+    <Pressable
+      onPress={props.aoPressionar}
+      disabled={props.desabilitado}
+      // O style do Pressable pode ser uma função: ele avisa se o dedo está
+      // em cima (pressed), e o botão escurece um pouco enquanto isso. É o
+      // retorno visual de que o toque foi percebido.
+      style={({ pressed }) => [
+        styles.caixa,
+        ehSecundario ? styles.caixaSecundaria : styles.caixaPrimaria,
+        props.compacto ? styles.caixaCompacta : null,
+        pressed ? styles.pressionado : null,
+        props.desabilitado ? styles.desabilitado : null,
+      ]}
+    >
+      <Text
         style={[
-          styles.caixa,
-          ehSecundario ? styles.caixaSecundaria : styles.caixaPrimaria,
-          // O botão desabilitado fica mais claro para o usuário perceber.
-          props.desabilitado ? styles.desabilitado : null,
+          styles.texto,
+          ehSecundario ? styles.textoSecundario : styles.textoPrimario,
+          props.compacto ? styles.textoCompacto : null,
         ]}
       >
-        <Text
-          style={[
-            styles.texto,
-            ehSecundario ? styles.textoSecundario : styles.textoPrimario,
-          ]}
-        >
-          {props.titulo}
-        </Text>
-      </View>
+        {props.titulo}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   caixa: {
-    borderRadius: 16,
+    // Raio maior que a metade da altura vira uma cápsula, como um comprimido.
+    borderRadius: 999,
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     alignItems: 'center',
   },
   caixaPrimaria: {
-    backgroundColor: CORES.menta,
+    backgroundColor: CORES.salvia,
   },
   caixaSecundaria: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: CORES.noite,
+    borderWidth: 1.5,
+    borderColor: CORES.ameixa,
+  },
+  caixaCompacta: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+  },
+  pressionado: {
+    opacity: 0.75,
   },
   desabilitado: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   texto: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: FONTES.textoForte,
+    fontSize: TAMANHOS.texto,
   },
   textoPrimario: {
-    color: CORES.gelo,
+    color: CORES.branco,
   },
   textoSecundario: {
-    color: CORES.noite,
+    color: CORES.ameixa,
+  },
+  textoCompacto: {
+    fontSize: 15,
   },
 });
