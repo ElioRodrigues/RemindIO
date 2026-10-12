@@ -1,7 +1,18 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  ToastAndroid,
+  View,
+} from 'react-native';
 import { Botao } from '../../components/Botao';
+import { JanelaNomeDoPet } from '../../components/JanelaNomeDoPet';
 import { CORES } from '../../constants/cores';
 import { FONTES, TAMANHOS } from '../../constants/fontes';
 import { calcularSaude } from '../../services/pet';
@@ -12,6 +23,7 @@ import {
   limparSessao,
   listarRemedios,
   listarTomadas,
+  salvarPet,
 } from '../../services/storage';
 import { Pet, Usuario } from '../../types';
 
@@ -20,6 +32,8 @@ export default function Ajustes() {
   const [pet, setPet] = useState<Pet | null>(null);
   const [totalDeRemedios, setTotalDeRemedios] = useState(0);
   const [saudeDoPet, setSaudeDoPet] = useState(0);
+  // Controla se a janela de renomear o pet está aberta.
+  const [janelaAberta, setJanelaAberta] = useState(false);
 
   // useFocusEffect, e não useEffect: a aba não é desmontada ao trocar de aba.
   // Com useEffect, a saúde e o total de remédios ficavam com o valor da
@@ -49,6 +63,17 @@ export default function Ajustes() {
     }, [])
   );
 
+  async function renomearPet(novoNome: string) {
+    await salvarPet({ nome: novoNome });
+    // Atualiza o estado para a tela mostrar o nome novo sem reabrir a aba.
+    setPet({ nome: novoNome });
+    setJanelaAberta(false);
+
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Agora o pet se chama ' + novoNome, ToastAndroid.SHORT);
+    }
+  }
+
   function confirmarSaida() {
     // Sair é uma ação destrutiva, então perguntamos antes de fazer.
     Alert.alert(
@@ -69,51 +94,74 @@ export default function Ajustes() {
   }
 
   return (
-    <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
-      <Text style={styles.grupo}>Sua conta</Text>
-      <View style={styles.cartao}>
-        <View style={styles.linha}>
-          <Text style={styles.rotulo}>Nome</Text>
-          <Text style={styles.valor}>
-            {usuario === null ? '' : usuario.nome}
-          </Text>
+    // A janela fica FORA do ScrollView, como irmã dele. Dentro, o ScrollView
+    // da tela "engolia" o primeiro toque em "Salvar nome" para fechar o
+    // teclado, e era preciso tocar duas vezes. O <> </> (fragmento) junta os
+    // dois sem criar uma View a mais.
+    <>
+      <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
+        <Text style={styles.grupo}>Sua conta</Text>
+        <View style={styles.cartao}>
+          <View style={styles.linha}>
+            <Text style={styles.rotulo}>Nome</Text>
+            <Text style={styles.valor}>
+              {usuario === null ? '' : usuario.nome}
+            </Text>
+          </View>
+          {/* A divisória fica entre as linhas, e não embaixo da última. */}
+          <View style={styles.divisoria} />
+          <View style={styles.linha}>
+            <Text style={styles.rotulo}>E-mail</Text>
+            <Text style={styles.valor}>
+              {usuario === null ? '' : usuario.email}
+            </Text>
+          </View>
         </View>
-        {/* A divisória fica entre as linhas, e não embaixo da última. */}
-        <View style={styles.divisoria} />
-        <View style={styles.linha}>
-          <Text style={styles.rotulo}>E-mail</Text>
-          <Text style={styles.valor}>
-            {usuario === null ? '' : usuario.email}
-          </Text>
-        </View>
-      </View>
 
-      <Text style={styles.grupo}>Seu pet</Text>
-      <View style={styles.cartao}>
-        <View style={styles.linha}>
-          <Text style={styles.rotulo}>Nome</Text>
-          <Text style={styles.valor}>{pet === null ? '' : pet.nome}</Text>
+        <Text style={styles.grupo}>Seu pet</Text>
+        <View style={styles.cartao}>
+          {/* A linha inteira é tocável e o lápis indica que dá para mudar. */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.linha,
+              pressed ? styles.linhaPressionada : null,
+            ]}
+            onPress={() => setJanelaAberta(true)}
+          >
+            <Text style={styles.rotulo}>Nome</Text>
+            <View style={styles.valorEditavel}>
+              <Text style={styles.valor}>{pet === null ? '' : pet.nome}</Text>
+              <MaterialIcons name="edit" size={18} color={CORES.ameixaSuave} />
+            </View>
+          </Pressable>
+          <View style={styles.divisoria} />
+          <View style={styles.linha}>
+            <Text style={styles.rotulo}>Saúde</Text>
+            <Text style={styles.valor}>{saudeDoPet}%</Text>
+          </View>
+          <View style={styles.divisoria} />
+          <View style={styles.linha}>
+            <Text style={styles.rotulo}>Remédios cadastrados</Text>
+            <Text style={styles.valor}>{totalDeRemedios}</Text>
+          </View>
         </View>
-        <View style={styles.divisoria} />
-        <View style={styles.linha}>
-          <Text style={styles.rotulo}>Saúde</Text>
-          <Text style={styles.valor}>{saudeDoPet}%</Text>
-        </View>
-        <View style={styles.divisoria} />
-        <View style={styles.linha}>
-          <Text style={styles.rotulo}>Remédios cadastrados</Text>
-          <Text style={styles.valor}>{totalDeRemedios}</Text>
-        </View>
-      </View>
 
-      <View style={styles.sair}>
-        <Botao
-          titulo="Sair da conta"
-          variante="secundario"
-          aoPressionar={confirmarSaida}
-        />
-      </View>
-    </ScrollView>
+        <View style={styles.sair}>
+          <Botao
+            titulo="Sair da conta"
+            variante="secundario"
+            aoPressionar={confirmarSaida}
+          />
+        </View>
+      </ScrollView>
+
+      <JanelaNomeDoPet
+        visivel={janelaAberta}
+        nomeAtual={pet === null ? '' : pet.nome}
+        aoFechar={() => setJanelaAberta(false)}
+        aoSalvar={renomearPet}
+      />
+    </>
   );
 }
 
@@ -143,6 +191,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     gap: 12,
+  },
+  linhaPressionada: {
+    opacity: 0.6,
+  },
+  valorEditavel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   divisoria: {
     height: 1,

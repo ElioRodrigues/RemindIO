@@ -13,13 +13,18 @@ import { Botao } from '../components/Botao';
 import { CampoTexto } from '../components/CampoTexto';
 import { CORES } from '../constants/cores';
 import { FONTES, TAMANHOS } from '../constants/fontes';
-import { buscarUsuarioPorEmail, salvarUsuario } from '../services/storage';
+import {
+  buscarUsuarioPorEmail,
+  salvarPetDaConta,
+  salvarUsuario,
+} from '../services/storage';
 
 interface DadosDoCadastro {
   nome: string;
   email: string;
   senha: string;
   confirmacao: string;
+  nomeDoPet: string;
 }
 
 const valoresIniciais: DadosDoCadastro = {
@@ -27,6 +32,7 @@ const valoresIniciais: DadosDoCadastro = {
   email: '',
   senha: '',
   confirmacao: '',
+  nomeDoPet: '',
 };
 
 const regrasDeValidacao = Yup.object({
@@ -44,6 +50,11 @@ const regrasDeValidacao = Yup.object({
   confirmacao: Yup.string()
     .required('Repita a senha')
     .oneOf([Yup.ref('senha')], 'As senhas não são iguais'),
+  nomeDoPet: Yup.string()
+    .trim()
+    .required('Dê um nome ao seu pet')
+    // Nome curto, para caber ao lado da % de saúde na tela Hoje.
+    .max(20, 'Use até 20 letras'),
 });
 
 export default function Cadastro() {
@@ -69,8 +80,9 @@ export default function Cadastro() {
       senha: dados.senha,
     });
 
-    // O pet não é criado aqui: como ainda não há sessão, ele seria salvo
-    // sem dono. Quem cria é a tela de Início, no primeiro acesso.
+    // Ainda não existe sessão (a pessoa só vai entrar depois), então o pet
+    // é salvo com o e-mail passado direto, e não pelo usuário logado.
+    await salvarPetDaConta(email, { nome: dados.nomeDoPet.trim() });
 
     if (Platform.OS === 'android') {
       ToastAndroid.show('Conta criada. Agora é só entrar.', ToastAndroid.SHORT);
@@ -144,6 +156,17 @@ export default function Cadastro() {
               erro={touched.confirmacao ? errors.confirmacao : undefined}
               segredo
               placeholder="A mesma senha"
+            />
+
+            <CampoTexto
+              rotulo="Nome do seu pet"
+              valor={values.nomeDoPet}
+              aoMudarTexto={handleChange('nomeDoPet')}
+              aoSair={() => setFieldTouched('nomeDoPet')}
+              erro={touched.nomeDoPet ? errors.nomeDoPet : undefined}
+              placeholder="Pipo"
+              capitalizar="words"
+              dica="Ele fica saudável quando você toma os remédios na hora."
             />
 
             <Botao

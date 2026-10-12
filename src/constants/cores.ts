@@ -24,4 +24,7 @@ export const CORES = {
   framboesa: '#B83A5E',
   framboesaClara: '#F6D9E2',
   branco: '#FFFFFF',
+  // O "véu" escuro atrás de uma janela (Modal): a ameixa com 50% de
+  // transparência. O rgba é a cor em vermelho, verde, azul e opacidade.
+  veu: 'rgba(51, 34, 74, 0.5)',
 };
