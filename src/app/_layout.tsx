@@ -1,11 +1,51 @@
+import {
+  AtkinsonHyperlegible_400Regular,
+  AtkinsonHyperlegible_700Bold,
+} from '@expo-google-fonts/atkinson-hyperlegible';
+import {
+  Baloo2_600SemiBold,
+  Baloo2_700Bold,
+  Baloo2_800ExtraBold,
+} from '@expo-google-fonts/baloo-2';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
+import { CORES } from '../constants/cores';
+import { CABECALHO_DO_APP } from '../constants/navegacao';
 
 export default function LayoutRaiz() {
+  // useFonts carrega os arquivos das fontes e devolve true quando terminou.
+  // As chaves do objeto viram os nomes usados em fontFamily (ver fontes.ts).
+  const [fontesCarregadas] = useFonts({
+    Baloo2_600SemiBold,
+    Baloo2_700Bold,
+    Baloo2_800ExtraBold,
+    AtkinsonHyperlegible_400Regular,
+    AtkinsonHyperlegible_700Bold,
+  });
+
+  // Enquanto as fontes não chegam, uma tela lisa da cor do fundo. Sem isso
+  // os textos apareceriam um instante na fonte padrão e depois "pulariam".
+  if (!fontesCarregadas) {
+    return <View style={{ flex: 1, backgroundColor: CORES.nevoa }} />;
+  }
+
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: 'Login' }} />
-      <Stack.Screen name="cadastro" options={{ title: 'Cadastro' }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <>
+      {/* Ícones da barra de status escuros, porque o fundo é claro. */}
+      <StatusBar style="dark" />
+
+      <Stack
+        screenOptions={{
+          ...CABECALHO_DO_APP,
+          contentStyle: { backgroundColor: CORES.nevoa },
+        }}
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="cadastro" options={{ title: 'Criar conta' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </>
   );
 }
