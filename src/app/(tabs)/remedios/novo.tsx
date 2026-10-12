@@ -3,6 +3,7 @@ import { Formik } from 'formik';
 import { useState } from 'react';
 import {
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import * as Yup from 'yup';
 import { Botao } from '../../../components/Botao';
 import { CampoTexto } from '../../../components/CampoTexto';
 import { CORES } from '../../../constants/cores';
+import { FONTES, TAMANHOS } from '../../../constants/fontes';
 import { horariosDoCiclo } from '../../../services/datas';
 import { salvarRemedio } from '../../../services/storage';
 
@@ -125,14 +127,18 @@ export default function NovoRemedio() {
     });
 
     if (Platform.OS === 'android') {
-      ToastAndroid.show('Remédio salvo!', ToastAndroid.SHORT);
+      ToastAndroid.show(dados.nome + ' cadastrado', ToastAndroid.SHORT);
     }
 
     router.back();
   }
 
   return (
-    <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
+    <ScrollView
+      style={styles.tela}
+      contentContainerStyle={styles.conteudo}
+      keyboardShouldPersistTaps="handled"
+    >
       <Formik
         initialValues={valoresIniciais}
         validationSchema={modo === 'fixo' ? regrasDoModoFixo : regrasDoModoCiclo}
@@ -155,6 +161,7 @@ export default function NovoRemedio() {
               aoSair={() => setFieldTouched('nome')}
               erro={touched.nome ? errors.nome : undefined}
               placeholder="Losartana"
+              capitalizar="sentences"
             />
 
             <CampoTexto
@@ -168,22 +175,24 @@ export default function NovoRemedio() {
 
             <Text style={styles.rotulo}>Como são os horários?</Text>
 
+            {/* Controle segmentado: duas opções lado a lado, numa faixa só,
+                e a escolhida fica destacada em branco. Deixa claro que é
+                uma escolha entre as duas, coisa que dois botões soltos não
+                deixavam. */}
             <View style={styles.seletor}>
-              <View style={styles.opcao}>
-                <Botao
-                  titulo="Horários fixos"
-                  variante={modo === 'fixo' ? 'primario' : 'secundario'}
-                  aoPressionar={() => setModo('fixo')}
-                />
-              </View>
+              <Pressable
+                style={[styles.opcao, modo === 'fixo' ? styles.opcaoAtiva : null]}
+                onPress={() => setModo('fixo')}
+              >
+                <Text style={styles.textoDaOpcao}>Horários fixos</Text>
+              </Pressable>
 
-              <View style={styles.opcao}>
-                <Botao
-                  titulo="A cada X horas"
-                  variante={modo === 'ciclo' ? 'primario' : 'secundario'}
-                  aoPressionar={() => setModo('ciclo')}
-                />
-              </View>
+              <Pressable
+                style={[styles.opcao, modo === 'ciclo' ? styles.opcaoAtiva : null]}
+                onPress={() => setModo('ciclo')}
+              >
+                <Text style={styles.textoDaOpcao}>A cada X horas</Text>
+              </Pressable>
             </View>
 
             {modo === 'fixo' ? (
@@ -194,6 +203,7 @@ export default function NovoRemedio() {
                 aoSair={() => setFieldTouched('horarios')}
                 erro={touched.horarios ? errors.horarios : undefined}
                 placeholder="08:00, 20:00"
+                dica="Separe os horários por vírgula."
               />
             ) : (
               <>
@@ -223,7 +233,7 @@ export default function NovoRemedio() {
                     {horariosDoCiclo(
                       values.horaInicial,
                       Number(values.intervalo)
-                    ).join('   ')}
+                    ).join(', ')}
                   </Text>
                 ) : null}
               </>
@@ -236,10 +246,12 @@ export default function NovoRemedio() {
               aoSair={() => setFieldTouched('observacao')}
               erro={touched.observacao ? errors.observacao : undefined}
               placeholder="Tomar após as refeições"
+              capitalizar="sentences"
+              dica="Opcional."
             />
 
             <Botao
-              titulo="Salvar remédio"
+              titulo="Cadastrar remédio"
               aoPressionar={() => handleSubmit()}
               desabilitado={isSubmitting}
             />
@@ -253,27 +265,43 @@ export default function NovoRemedio() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: CORES.gelo,
+    backgroundColor: CORES.nevoa,
   },
   conteudo: {
     padding: 20,
   },
   rotulo: {
-    fontSize: 14,
-    color: CORES.noite,
-    marginBottom: 4,
+    fontFamily: FONTES.textoForte,
+    fontSize: 15,
+    color: CORES.ameixa,
+    marginBottom: 6,
   },
   seletor: {
     flexDirection: 'row',
-    marginBottom: 12,
+    backgroundColor: CORES.lavandaClara,
+    borderRadius: 999,
+    padding: 4,
+    marginBottom: 16,
   },
   opcao: {
+    // flex: 1 nas duas opções divide a faixa ao meio.
     flex: 1,
-    marginRight: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  opcaoAtiva: {
+    backgroundColor: CORES.branco,
+  },
+  textoDaOpcao: {
+    fontFamily: FONTES.textoForte,
+    fontSize: 15,
+    color: CORES.ameixa,
   },
   previa: {
-    fontSize: 14,
-    color: CORES.menta,
-    marginBottom: 12,
+    fontFamily: FONTES.textoForte,
+    fontSize: 15,
+    color: CORES.salvia,
+    marginBottom: 16,
   },
 });

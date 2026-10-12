@@ -5,13 +5,14 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
   ToastAndroid,
 } from 'react-native';
 import * as Yup from 'yup';
 import { Botao } from '../components/Botao';
-import { Cabecalho } from '../components/Cabecalho';
 import { CampoTexto } from '../components/CampoTexto';
 import { CORES } from '../constants/cores';
+import { FONTES, TAMANHOS } from '../constants/fontes';
 import { buscarUsuarioPorEmail, salvarUsuario } from '../services/storage';
 
 interface DadosDoCadastro {
@@ -55,7 +56,10 @@ export default function Cadastro() {
     const jaExiste = await buscarUsuarioPorEmail(email);
 
     if (jaExiste !== null) {
-      Alert.alert('E-mail em uso', 'Já existe uma conta com esse e-mail.');
+      Alert.alert(
+        'Este e-mail já tem conta',
+        'Volte e entre com ele, ou use outro e-mail.'
+      );
       return;
     }
 
@@ -69,7 +73,7 @@ export default function Cadastro() {
     // sem dono. Quem cria é a tela de Início, no primeiro acesso.
 
     if (Platform.OS === 'android') {
-      ToastAndroid.show('Conta criada!', ToastAndroid.SHORT);
+      ToastAndroid.show('Conta criada. Agora é só entrar.', ToastAndroid.SHORT);
     }
 
     // back volta para o Login que já estava na pilha, em vez de empilhar
@@ -78,8 +82,14 @@ export default function Cadastro() {
   }
 
   return (
-    <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
-      <Cabecalho titulo="Criar conta" subtitulo="Seu pet já está esperando" />
+    <ScrollView
+      style={styles.tela}
+      contentContainerStyle={styles.conteudo}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.intro}>
+        Seus remédios e seu pet ficam guardados neste aparelho, na sua conta.
+      </Text>
 
       <Formik
         initialValues={valoresIniciais}
@@ -103,6 +113,7 @@ export default function Cadastro() {
               aoSair={() => setFieldTouched('nome')}
               erro={touched.nome ? errors.nome : undefined}
               placeholder="Como podemos te chamar?"
+              capitalizar="words"
             />
 
             <CampoTexto
@@ -150,9 +161,15 @@ export default function Cadastro() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: CORES.gelo,
+    backgroundColor: CORES.nevoa,
   },
   conteudo: {
     padding: 20,
+  },
+  intro: {
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.texto,
+    color: CORES.ameixaSuave,
+    marginBottom: 20,
   },
 });

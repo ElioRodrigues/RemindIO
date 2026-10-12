@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   FlatList,
@@ -9,13 +9,17 @@ import {
   ToastAndroid,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BarraSaude } from '../../components/BarraSaude';
+import { BolhaDose } from '../../components/BolhaDose';
 import { Botao } from '../../components/Botao';
 import { CORES } from '../../constants/cores';
+import { FONTES, TAMANHOS } from '../../constants/fontes';
 import {
   dataDeHoje,
   horarioEmMinutos,
   minutosEmHorario,
+  saudacao,
 } from '../../services/datas';
 import {
   ANTECEDENCIA_EM_MINUTOS,
@@ -24,7 +28,9 @@ import {
 } from '../../services/doses';
 import { calcularSaude, estadoDoPet } from '../../services/pet';
 import {
+  buscarUsuarioPorEmail,
   lerPet,
+  lerSessao,
   listarRemedios,
   listarTomadas,
   registrarTomada,
@@ -41,13 +47,14 @@ const DESENHOS_DO_PET = {
 };
 
 const FRASES_DO_PET = {
-  saudavel: 'Está ótimo! Continue confirmando as doses no horário.',
-  abatido: 'Ficou meio abatido. Não deixe passar as próximas doses.',
-  doente: 'Está doente. Você perdeu várias doses seguidas.',
+  saudavel: 'Está ótimo. Continue confirmando as doses no horário.',
+  abatido: 'Ficou abatido. Não deixe passar as próximas doses.',
+  doente: 'Está doente: várias doses passaram sem confirmação.',
 };
 
 export default function Inicio() {
   const [pet, setPet] = useState<Pet | null>(null);
+  const [nomeDoUsuario, setNomeDoUsuario] = useState('');
   const [remedios, setRemedios] = useState<Remedio[]>([]);
   const [tomadas, setTomadas] = useState<Tomada[]>([]);
 
@@ -64,6 +71,15 @@ export default function Inicio() {
 
         setRemedios(listaDeRemedios);
         setTomadas(listaDeTomadas);
+
+        // Só o primeiro nome, para a saudação ficar curta.
+        const email = await lerSessao();
+        if (email !== null) {
+          const usuario = await buscarUsuarioPorEmail(email);
+          if (usuario !== null) {
+            setNomeDoUsuario(usuario.nome.split(' ')[0]);
+          }
+        }
 
         // Primeiro acesso da conta: o pet ainda não existe, então nasce
         // aqui. Só depois do login, para ter dono.
@@ -96,12 +112,14 @@ export default function Inicio() {
       atrasada: atrasada,
     });
 
-    // Relê as tomadas para o botão virar "Tomada" na tela.
+    // Relê as tomadas para a bolha virar "tomada" na tela.
     const listaAtualizada = await listarTomadas();
     setTomadas(listaAtualizada);
 
     if (Platform.OS === 'android') {
-      const aviso = atrasada ? 'Dose confirmada com atraso' : 'Dose confirmada!';
+      const aviso = atrasada
+        ? 'Dose das ' + dose.horario + ' registrada com atraso'
+        : 'Dose das ' + dose.horario + ' registrada';
       ToastAndroid.show(aviso, ToastAndroid.SHORT);
     }
   }
@@ -110,136 +128,167 @@ export default function Inicio() {
   const saude = calcularSaude(remedios, tomadas);
   const estado = estadoDoPet(saude);
 
-  return (
-    <View style={styles.tela}>
-      <View style={styles.areaDoPet}>
-        <Image source={DESENHOS_DO_PET[estado]} style={styles.desenhoDoPet} />
+  // Quantas doses de hoje já foram tomadas, para o "3 de 8 tomadas".
+  let totalTomadas = 0;
+  for (let i = 0; i < doses.length; i++) {
+    if (situacaoDaDose(doses[i], tomadas) === 'tomada') {
+      totalTomadas = totalTomadas + 1;
+    }
+  }
 
-        <Text style={styles.nomeDoPet}>
-          {pet === null ? 'Seu pet' : pet.nome}
-        </Text>
+  // Tudo o que fica acima da cartela. Vai como cabeçalho da FlatList para a
+  // tela inteira rolar junto: com o pet fora da lista, sobraria pouco espaço
+  // para as doses em celulares menores.
+  const topoDaTela = (
+    <View>
+      <Text style={styles.saudacao}>
+        {saudacao()}
+        {nomeDoUsuario === '' ? '' : ', ' + nomeDoUsuario}
+      </Text>
+
+      <View style={styles.painelDoPet}>
+        <View style={styles.areaDoDesenho}>
+          <Image
+            source={DESENHOS_DO_PET[estado]}
+            style={styles.desenhoDoPet}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.linhaDoPet}>
+          <Text style={styles.nomeDoPet}>
+            {pet === null ? 'Seu pet' : pet.nome}
+          </Text>
+          <Text style={styles.saude}>{saude}%</Text>
+        </View>
+
+        <BarraSaude saude={saude} />
 
         <Text style={styles.fraseDoPet}>{FRASES_DO_PET[estado]}</Text>
       </View>
 
-      <BarraSaude saude={saude} />
+      <View style={styles.linhaDaCartela}>
+        <Text style={styles.tituloDaCartela}>Cartela de hoje</Text>
+        {doses.length > 0 ? (
+          <Text style={styles.contagem}>
+            {totalTomadas} de {doses.length} tomadas
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
 
-      <Text style={styles.secao}>Doses de hoje</Text>
-
+  return (
+    // SafeAreaView afasta o conteúdo da barra de status, já que esta aba
+    // não tem cabeçalho. edges diz que só o topo precisa: embaixo já estão
+    // as abas.
+    <SafeAreaView style={styles.tela} edges={['top']}>
       <FlatList
         data={doses}
         keyExtractor={(dose) => dose.remedio.id + dose.horario}
+        contentContainerStyle={styles.conteudo}
+        ListHeaderComponent={topoDaTela}
         ListEmptyComponent={
-          <Text style={styles.vazio}>
-            Nenhum remédio cadastrado ainda. Vá até a aba Remédios.
-          </Text>
+          <View style={styles.vazio}>
+            <Text style={styles.textoVazio}>
+              Cadastre o primeiro remédio para montar a cartela de hoje.
+            </Text>
+            <Botao
+              titulo="Cadastrar remédio"
+              aoPressionar={() => router.push('/remedios/novo')}
+            />
+          </View>
         }
-        renderItem={({ item }) => {
-          const situacao = situacaoDaDose(item, tomadas);
-
-          // Antes da janela o botão não aparece: mostramos a partir de
-          // quando a dose pode ser confirmada.
-          const liberaAs = minutosEmHorario(
-            horarioEmMinutos(item.horario) - ANTECEDENCIA_EM_MINUTOS
-          );
-
-          return (
-            <View style={styles.dose}>
-              <View style={styles.doseTexto}>
-                <Text style={styles.doseNome}>{item.remedio.nome}</Text>
-                <Text style={styles.doseHorario}>
-                  {item.horario}
-                  {situacao === 'atrasada' ? ' (atrasada)' : ''}
-                </Text>
-              </View>
-
-              {situacao === 'tomada' ? (
-                <Text style={styles.tomada}>Tomada</Text>
-              ) : null}
-
-              {situacao === 'aguardando' ? (
-                <Text style={styles.aguardando}>a partir de {liberaAs}</Text>
-              ) : null}
-
-              {situacao === 'liberada' || situacao === 'atrasada' ? (
-                <Botao titulo="Tomei" aoPressionar={() => confirmarDose(item)} />
-              ) : null}
-            </View>
-          );
-        }}
+        renderItem={({ item, index }) => (
+          <BolhaDose
+            dose={item}
+            situacao={situacaoDaDose(item, tomadas)}
+            // Antes da janela o botão não aparece: mostramos a partir de
+            // quando a dose pode ser confirmada.
+            liberaAs={minutosEmHorario(
+              horarioEmMinutos(item.horario) - ANTECEDENCIA_EM_MINUTOS
+            )}
+            ultima={index === doses.length - 1}
+            aoConfirmar={() => confirmarDose(item)}
+          />
+        )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: CORES.gelo,
+    backgroundColor: CORES.nevoa,
+  },
+  conteudo: {
     padding: 20,
   },
-  areaDoPet: {
-    alignItems: 'center',
+  saudacao: {
+    fontFamily: FONTES.titulo,
+    fontSize: TAMANHOS.titulo,
+    color: CORES.ameixa,
     marginBottom: 12,
+  },
+  painelDoPet: {
+    backgroundColor: CORES.lavandaClara,
+    borderRadius: 28,
+    padding: 20,
+    marginBottom: 28,
+  },
+  areaDoDesenho: {
+    alignItems: 'center',
+    marginBottom: 4,
   },
   desenhoDoPet: {
-    width: 160,
-    height: 160,
-    resizeMode: 'contain',
+    width: 170,
+    height: 170,
+  },
+  linhaDoPet: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 6,
   },
   nomeDoPet: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: CORES.noite,
-    marginTop: 4,
+    fontFamily: FONTES.tituloForte,
+    fontSize: TAMANHOS.titulo,
+    color: CORES.ameixa,
+  },
+  saude: {
+    fontFamily: FONTES.titulo,
+    fontSize: TAMANHOS.destaque,
+    color: CORES.ameixa,
   },
   fraseDoPet: {
-    fontSize: 13,
-    color: CORES.roxo,
-    textAlign: 'center',
-    marginTop: 2,
+    fontFamily: FONTES.texto,
+    fontSize: 15,
+    color: CORES.ameixaSuave,
+    marginTop: 10,
   },
-  secao: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: CORES.noite,
-    marginBottom: 12,
+  linhaDaCartela: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 14,
+  },
+  tituloDaCartela: {
+    fontFamily: FONTES.titulo,
+    fontSize: TAMANHOS.destaque,
+    color: CORES.ameixa,
+  },
+  contagem: {
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.detalhe,
+    color: CORES.ameixaSuave,
   },
   vazio: {
-    fontSize: 14,
-    color: CORES.roxo,
+    gap: 16,
   },
-  dose: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: CORES.gelo,
-    borderWidth: 1,
-    borderColor: CORES.sol,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  doseTexto: {
-    flex: 1,
-  },
-  doseNome: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: CORES.noite,
-  },
-  doseHorario: {
-    fontSize: 14,
-    color: CORES.coral,
-    marginTop: 2,
-  },
-  aguardando: {
-    fontSize: 13,
-    color: CORES.roxo,
-  },
-  tomada: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: CORES.menta,
+  textoVazio: {
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.texto,
+    color: CORES.ameixaSuave,
   },
 });

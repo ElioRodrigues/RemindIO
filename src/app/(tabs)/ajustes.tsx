@@ -1,9 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Botao } from '../../components/Botao';
-import { Cabecalho } from '../../components/Cabecalho';
 import { CORES } from '../../constants/cores';
+import { FONTES, TAMANHOS } from '../../constants/fontes';
 import { calcularSaude } from '../../services/pet';
 import {
   buscarUsuarioPorEmail,
@@ -51,10 +51,14 @@ export default function Ajustes() {
 
   function confirmarSaida() {
     // Sair é uma ação destrutiva, então perguntamos antes de fazer.
-    Alert.alert('Sair da conta', 'Você quer mesmo sair?', [
-      { text: 'Cancelar' },
-      { text: 'Sair', onPress: sair },
-    ]);
+    Alert.alert(
+      'Sair da conta?',
+      'Seus remédios continuam salvos. É só entrar de novo para vê-los.',
+      [
+        { text: 'Cancelar' },
+        { text: 'Sair', onPress: sair },
+      ]
+    );
   }
 
   async function sair() {
@@ -65,63 +69,100 @@ export default function Ajustes() {
   }
 
   return (
-    <View style={styles.tela}>
-      <Cabecalho titulo="Ajustes" subtitulo="Sua conta e seu pet" />
-
+    <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
+      <Text style={styles.grupo}>Sua conta</Text>
       <View style={styles.cartao}>
-        <Text style={styles.rotulo}>Nome</Text>
-        <Text style={styles.valor}>
-          {usuario === null ? 'Carregando...' : usuario.nome}
-        </Text>
-
-        <Text style={styles.rotulo}>E-mail</Text>
-        <Text style={styles.valor}>
-          {usuario === null ? 'Carregando...' : usuario.email}
-        </Text>
+        <View style={styles.linha}>
+          <Text style={styles.rotulo}>Nome</Text>
+          <Text style={styles.valor}>
+            {usuario === null ? '' : usuario.nome}
+          </Text>
+        </View>
+        {/* A divisória fica entre as linhas, e não embaixo da última. */}
+        <View style={styles.divisoria} />
+        <View style={styles.linha}>
+          <Text style={styles.rotulo}>E-mail</Text>
+          <Text style={styles.valor}>
+            {usuario === null ? '' : usuario.email}
+          </Text>
+        </View>
       </View>
 
+      <Text style={styles.grupo}>Seu pet</Text>
       <View style={styles.cartao}>
-        <Text style={styles.rotulo}>Pet</Text>
-        <Text style={styles.valor}>
-          {pet === null
-            ? 'Nenhum pet ainda'
-            : pet.nome + ' — ' + saudeDoPet + '% de saúde'}
-        </Text>
-
-        <Text style={styles.rotulo}>Remédios cadastrados</Text>
-        <Text style={styles.valor}>{totalDeRemedios}</Text>
+        <View style={styles.linha}>
+          <Text style={styles.rotulo}>Nome</Text>
+          <Text style={styles.valor}>{pet === null ? '' : pet.nome}</Text>
+        </View>
+        <View style={styles.divisoria} />
+        <View style={styles.linha}>
+          <Text style={styles.rotulo}>Saúde</Text>
+          <Text style={styles.valor}>{saudeDoPet}%</Text>
+        </View>
+        <View style={styles.divisoria} />
+        <View style={styles.linha}>
+          <Text style={styles.rotulo}>Remédios cadastrados</Text>
+          <Text style={styles.valor}>{totalDeRemedios}</Text>
+        </View>
       </View>
 
-      <Botao
-        titulo="Sair da conta"
-        variante="secundario"
-        aoPressionar={confirmarSaida}
-      />
-    </View>
+      <View style={styles.sair}>
+        <Botao
+          titulo="Sair da conta"
+          variante="secundario"
+          aoPressionar={confirmarSaida}
+        />
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: CORES.gelo,
+    backgroundColor: CORES.nevoa,
+  },
+  conteudo: {
     padding: 20,
   },
+  grupo: {
+    fontFamily: FONTES.titulo,
+    fontSize: TAMANHOS.destaque,
+    color: CORES.ameixa,
+    marginBottom: 8,
+  },
   cartao: {
-    borderWidth: 1,
-    borderColor: CORES.sol,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: CORES.branco,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  linha: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  divisoria: {
+    height: 1,
+    backgroundColor: CORES.lavandaClara,
   },
   rotulo: {
-    fontSize: 12,
-    color: CORES.roxo,
-    marginBottom: 2,
+    fontFamily: FONTES.texto,
+    fontSize: 15,
+    color: CORES.ameixaSuave,
   },
   valor: {
-    fontSize: 16,
-    color: CORES.noite,
-    marginBottom: 12,
+    // flexShrink deixa um e-mail comprido quebrar a linha em vez de
+    // empurrar o rótulo para fora da tela.
+    flexShrink: 1,
+    textAlign: 'right',
+    fontFamily: FONTES.textoForte,
+    fontSize: TAMANHOS.texto,
+    color: CORES.ameixa,
+  },
+  sair: {
+    marginTop: 8,
   },
 });

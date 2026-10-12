@@ -100,3 +100,19 @@ export function horariosDoCiclo(
 
   return lista;
 }
+
+// "Bom dia", "Boa tarde" ou "Boa noite", pela hora do aparelho.
+export function saudacao(): string {
+  const hora = new Date().getHours();
+
+  if (hora < 5) {
+    return 'Boa noite';
+  }
+  if (hora < 12) {
+    return 'Bom dia';
+  }
+  if (hora < 18) {
+    return 'Boa tarde';
+  }
+  return 'Boa noite';
+}

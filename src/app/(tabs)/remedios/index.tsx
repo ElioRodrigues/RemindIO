@@ -4,6 +4,7 @@ import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Botao } from '../../../components/Botao';
 import { CardRemedio } from '../../../components/CardRemedio';
 import { CORES } from '../../../constants/cores';
+import { FONTES, TAMANHOS } from '../../../constants/fontes';
 import { listarRemedios } from '../../../services/storage';
 import { Remedio } from '../../../types';
 
@@ -27,9 +28,7 @@ export default function ListaRemedios() {
 
   function mostrarDetalhes(remedio: Remedio) {
     const observacao =
-      remedio.observacao === ''
-        ? 'Sem observações.'
-        : remedio.observacao;
+      remedio.observacao === '' ? 'Sem observação.' : remedio.observacao;
 
     Alert.alert(remedio.nome, remedio.dosagem + '\n\n' + observacao);
   }
@@ -39,9 +38,11 @@ export default function ListaRemedios() {
       <FlatList
         data={remedios}
         keyExtractor={(remedio) => remedio.id}
+        contentContainerStyle={styles.lista}
         ListEmptyComponent={
           <Text style={styles.vazio}>
-            Você ainda não cadastrou nenhum remédio.
+            Nenhum remédio ainda. Cadastre o primeiro: o nome, a dose e os
+            horários em que você toma.
           </Text>
         }
         renderItem={({ item }) => (
@@ -52,10 +53,14 @@ export default function ListaRemedios() {
         )}
       />
 
-      <Botao
-        titulo="Novo remédio"
-        aoPressionar={() => router.push('/remedios/novo')}
-      />
+      {/* O botão fica fora da lista, preso embaixo: com muitos remédios
+          ele continua à vista, sem precisar rolar até o fim. */}
+      <View style={styles.rodape}>
+        <Botao
+          titulo="Cadastrar remédio"
+          aoPressionar={() => router.push('/remedios/novo')}
+        />
+      </View>
     </View>
   );
 }
@@ -63,11 +68,19 @@ export default function ListaRemedios() {
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: CORES.gelo,
-    padding: 20,
+    backgroundColor: CORES.nevoa,
+  },
+  lista: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   vazio: {
-    fontSize: 14,
-    color: CORES.roxo,
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.texto,
+    color: CORES.ameixaSuave,
+  },
+  rodape: {
+    padding: 20,
+    paddingTop: 8,
   },
 });
