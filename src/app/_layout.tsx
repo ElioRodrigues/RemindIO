@@ -10,9 +10,15 @@ import {
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { LogBox, View } from 'react-native';
 import { CORES } from '../constants/cores';
 import { CABECALHO_DO_APP } from '../constants/navegacao';
+
+// O expo-notifications avisa, ao ser carregado no Expo Go, que as
+// notificações REMOTAS (push, enviadas por um servidor) não funcionam lá.
+// O RemindIO só usa notificações LOCAIS, agendadas no próprio aparelho, que
+// funcionam normalmente. O aviso não se aplica, então é escondido da tela.
+LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
 
 export default function LayoutRaiz() {
   // useFonts carrega os arquivos das fontes e devolve true quando terminou.

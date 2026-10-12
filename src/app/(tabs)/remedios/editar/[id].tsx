@@ -7,6 +7,7 @@ import {
 } from '../../../../components/FormularioRemedio';
 import { CORES } from '../../../../constants/cores';
 import { apagarFoto, guardarFoto } from '../../../../services/fotos';
+import { atualizarLembretes } from '../../../../services/lembretes';
 import { atualizarRemedio, buscarRemedioPorId } from '../../../../services/storage';
 import { Remedio } from '../../../../types';
 
@@ -39,6 +40,9 @@ export default function EditarRemedio() {
     if (fotoAntiga !== fotoNova) {
       apagarFoto(fotoAntiga);
     }
+
+    // Os horários podem ter mudado: os lembretes acompanham.
+    await atualizarLembretes();
 
     if (Platform.OS === 'android') {
       ToastAndroid.show('Alterações salvas', ToastAndroid.SHORT);

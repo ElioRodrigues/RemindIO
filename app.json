@@ -22,7 +22,10 @@
         "backgroundColor": "#F6F3FA"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "SCHEDULE_EXACT_ALARM"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,6 +37,12 @@
         {
           "cameraPermission": "O RemindIO usa a câmera para fotografar a caixa ou a receita do remédio.",
           "photosPermission": "O RemindIO usa suas fotos para mostrar a caixa ou a receita do remédio."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#A98BCB"
         }
       ]
     ]

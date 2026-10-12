@@ -20,6 +20,7 @@ import { FONTES, TAMANHOS } from '../../../constants/fontes';
 import { dataPorExtenso } from '../../../services/datas';
 import { situacaoDaDose } from '../../../services/doses';
 import { apagarFoto } from '../../../services/fotos';
+import { atualizarLembretes } from '../../../services/lembretes';
 import { doseValeHoje } from '../../../services/pet';
 import {
   buscarRemedioPorId,
@@ -98,6 +99,8 @@ export default function DetalheRemedio() {
     await excluirRemedio(remedio.id);
     // Sem o remédio, a foto dele não aparece em lugar nenhum: libera espaço.
     apagarFoto(remedio.foto ?? '');
+    // Remédio excluído não avisa mais.
+    await atualizarLembretes();
 
     if (Platform.OS === 'android') {
       ToastAndroid.show(remedio.nome + ' excluído', ToastAndroid.SHORT);

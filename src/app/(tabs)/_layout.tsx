@@ -1,10 +1,41 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { CORES } from '../../constants/cores';
 import { FONTES } from '../../constants/fontes';
 import { CABECALHO_DO_APP } from '../../constants/navegacao';
+import {
+  atualizarLembretes,
+  configurarNotificacoes,
+} from '../../services/lembretes';
 
 export default function LayoutTabs() {
+  // Este layout só aparece com alguém logado (depois do login, ou quando o
+  // app abre e lembra a sessão). Por isso é aqui que os lembretes da conta
+  // são preparados, uma vez por abertura do app.
+  useEffect(() => {
+    async function prepararLembretes() {
+      await configurarNotificacoes();
+      // Também pede a permissão na primeira vez.
+      await atualizarLembretes();
+    }
+
+    prepararLembretes();
+
+    // Tocar num lembrete abre o app na tela Hoje, onde está o "Tomei".
+    // O addListener devolve uma "inscrição"; o remove() no retorno do
+    // useEffect desliga o ouvinte quando o layout sai da tela (ao sair da
+    // conta), senão ele continuaria ouvindo sem ninguém logado.
+    const inscricao = Notifications.addNotificationResponseReceivedListener(
+      () => {
+        router.navigate('/inicio');
+      }
+    );
+
+    return () => inscricao.remove();
+  }, []);
+
   return (
     <Tabs
       screenOptions={{

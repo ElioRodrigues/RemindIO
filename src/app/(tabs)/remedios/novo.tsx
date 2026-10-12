@@ -5,6 +5,7 @@ import {
   RemedioDoFormulario,
 } from '../../../components/FormularioRemedio';
 import { guardarFoto } from '../../../services/fotos';
+import { atualizarLembretes } from '../../../services/lembretes';
 import { salvarRemedio } from '../../../services/storage';
 
 export default function NovoRemedio() {
@@ -20,6 +21,9 @@ export default function NovoRemedio() {
       // troca o endereço temporário da câmera pelo da pasta do app.
       foto: guardarFoto(dados.foto ?? ''),
     });
+
+    // O remédio novo passa a ter lembretes nos horários dele.
+    await atualizarLembretes();
 
     if (Platform.OS === 'android') {
       ToastAndroid.show(dados.nome + ' cadastrado', ToastAndroid.SHORT);

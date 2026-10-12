@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +16,11 @@ import { Botao } from '../../components/Botao';
 import { JanelaNomeDoPet } from '../../components/JanelaNomeDoPet';
 import { CORES } from '../../constants/cores';
 import { FONTES, TAMANHOS } from '../../constants/fontes';
+import {
+  atualizarLembretes,
+  cancelarLembretes,
+  lembretesPermitidos,
+} from '../../services/lembretes';
 import { calcularSaude } from '../../services/pet';
 import {
   buscarUsuarioPorEmail,
@@ -34,6 +40,8 @@ export default function Ajustes() {
   const [saudeDoPet, setSaudeDoPet] = useState(0);
   // Controla se a janela de renomear o pet está aberta.
   const [janelaAberta, setJanelaAberta] = useState(false);
+  // Se o aparelho deixa o app mostrar notificações.
+  const [lembretesLigados, setLembretesLigados] = useState(false);
 
   // useFocusEffect, e não useEffect: a aba não é desmontada ao trocar de aba.
   // Com useEffect, a saúde e o total de remédios ficavam com o valor da
@@ -57,6 +65,15 @@ export default function Ajustes() {
         // A mesma conta da tela de Início, para os dois números baterem.
         const tomadas = await listarTomadas();
         setSaudeDoPet(calcularSaude(lista, tomadas));
+
+        // Consultado a cada visita: o usuário pode ter ido às configurações
+        // do aparelho, liberado as notificações e voltado.
+        const permitidos = await lembretesPermitidos();
+        setLembretesLigados(permitidos);
+        if (permitidos) {
+          // Se acabou de liberar, os lembretes ainda não existem.
+          await atualizarLembretes();
+        }
       }
 
       carregarDados();
@@ -68,6 +85,8 @@ export default function Ajustes() {
     // Atualiza o estado para a tela mostrar o nome novo sem reabrir a aba.
     setPet({ nome: novoNome });
     setJanelaAberta(false);
+    // O nome do pet aparece no texto dos lembretes.
+    await atualizarLembretes();
 
     if (Platform.OS === 'android') {
       ToastAndroid.show('Agora o pet se chama ' + novoNome, ToastAndroid.SHORT);
@@ -87,6 +106,8 @@ export default function Ajustes() {
   }
 
   async function sair() {
+    // Os lembretes são da conta: quem saiu não deve mais ser avisado.
+    await cancelarLembretes();
     await limparSessao();
 
     // replace para o botão de voltar não retornar ao app já deslogado.
@@ -145,6 +166,41 @@ export default function Ajustes() {
             <Text style={styles.valor}>{totalDeRemedios}</Text>
           </View>
         </View>
+
+        <Text style={styles.grupo}>Lembretes</Text>
+        <View style={styles.cartao}>
+          {/* Desligados, a linha vira um atalho para as configurações: o
+              app não consegue mais pedir a permissão depois que o usuário
+              negou, só o próprio usuário pode liberar lá. */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.linha,
+              pressed ? styles.linhaPressionada : null,
+            ]}
+            onPress={() => Linking.openSettings()}
+            disabled={lembretesLigados}
+          >
+            <Text style={styles.rotulo}>Avisar na hora de cada dose</Text>
+            <View style={styles.valorEditavel}>
+              <Text
+                style={[
+                  styles.valor,
+                  lembretesLigados ? styles.ligado : styles.desligado,
+                ]}
+              >
+                {lembretesLigados ? 'Ligados' : 'Desligados'}
+              </Text>
+              {lembretesLigados ? null : (
+                <MaterialIcons name="open-in-new" size={18} color={CORES.framboesa} />
+              )}
+            </View>
+          </Pressable>
+        </View>
+        {lembretesLigados ? null : (
+          <Text style={styles.ajuda}>
+            Toque para liberar as notificações nas configurações do aparelho.
+          </Text>
+        )}
 
         <View style={styles.sair}>
           <Botao
@@ -217,6 +273,19 @@ const styles = StyleSheet.create({
     fontFamily: FONTES.textoForte,
     fontSize: TAMANHOS.texto,
     color: CORES.ameixa,
+  },
+  ligado: {
+    color: CORES.salvia,
+  },
+  desligado: {
+    color: CORES.framboesa,
+  },
+  ajuda: {
+    fontFamily: FONTES.texto,
+    fontSize: TAMANHOS.detalhe,
+    color: CORES.ameixaSuave,
+    marginTop: -16,
+    marginBottom: 24,
   },
   sair: {
     marginTop: 8,
