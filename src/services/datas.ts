@@ -21,15 +21,21 @@ export function dataDeHoje(): string {
 }
 
 export function dataDeOntem(): string {
-  const ontem = new Date();
+  return dataDeDiasAtras(1);
+}
+
+// A data de N dias atrás, no mesmo formato: 1 é ontem, 7 é uma semana atrás.
+// Usada pelo histórico, que percorre os dias para trás.
+export function dataDeDiasAtras(dias: number): string {
+  const dia = new Date();
   // setDate com valor negativo já vira o mês e o ano sozinho.
-  ontem.setDate(ontem.getDate() - 1);
+  dia.setDate(dia.getDate() - dias);
 
-  const ano = ontem.getFullYear();
-  const mes = doisDigitos(ontem.getMonth() + 1);
-  const dia = doisDigitos(ontem.getDate());
+  const ano = dia.getFullYear();
+  const mes = doisDigitos(dia.getMonth() + 1);
+  const numero = doisDigitos(dia.getDate());
 
-  return ano + '-' + mes + '-' + dia;
+  return ano + '-' + mes + '-' + numero;
 }
 
 // Devolve o instante da meia-noite de hoje, em milissegundos. Serve para
@@ -46,6 +52,21 @@ export function inicioDoDiaDeHoje(): number {
 // instante em que o remédio foi cadastrado (o id dele).
 export function instanteDoHorarioDeHoje(horario: string): number {
   return inicioDoDiaDeHoje() + horarioEmMinutos(horario) * 60 * 1000;
+}
+
+// O instante (em milissegundos) de um horário numa data qualquer:
+// '2026-10-11' e '08:30' viram 11/10/2026 às 08:30. É a versão do
+// instanteDoHorarioDeHoje para os dias passados do histórico.
+export function instanteDoHorarioNaData(data: string, horario: string): number {
+  const partes = data.split('-');
+  // No Date o mês começa em 0 (janeiro), por isso o - 1.
+  const meiaNoite = new Date(
+    Number(partes[0]),
+    Number(partes[1]) - 1,
+    Number(partes[2])
+  ).getTime();
+
+  return meiaNoite + horarioEmMinutos(horario) * 60 * 1000;
 }
 
 // Transforma "08:30" em 510, para comparar horários com números.
@@ -132,4 +153,20 @@ export function dataPorExtenso(milissegundos: number): string {
   const mes = doisDigitos(data.getMonth() + 1);
 
   return dia + '/' + mes + '/' + data.getFullYear();
+}
+
+const DIAS_DA_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+// '2026-10-11' vira 'dom, 11/10'. É o título de cada dia do histórico.
+export function diaDaSemanaEData(data: string): string {
+  const partes = data.split('-');
+  const dia = new Date(
+    Number(partes[0]),
+    Number(partes[1]) - 1,
+    Number(partes[2])
+  );
+
+  // getDay devolve 0 para domingo, 1 para segunda... e serve de posição
+  // na lista de nomes.
+  return DIAS_DA_SEMANA[dia.getDay()] + ', ' + partes[2] + '/' + partes[1];
 }

@@ -50,3 +50,19 @@ export type SituacaoDaDose = 'aguardando' | 'liberada' | 'atrasada' | 'tomada';
 
 // Os três desenhos que o pet pode ter na tela de Início.
 export type EstadoDoPet = 'saudavel' | 'abatido' | 'doente';
+
+// O resumo de um dia no histórico. Como a saúde do pet, não é guardado:
+// é calculado a partir dos remédios e das tomadas toda vez que a aba abre.
+export interface ResumoDoDia {
+  data: string;
+  // Quantas doses aquele dia tinha.
+  previstas: number;
+  // Confirmadas até 1h depois do horário.
+  noHorario: number;
+  // Confirmadas com mais de 1h de atraso.
+  atrasadas: number;
+  // Não confirmadas.
+  perdidas: number;
+  // Tomadas (no horário + atrasadas) sobre previstas, de 0 a 100.
+  porcentagem: number;
+}

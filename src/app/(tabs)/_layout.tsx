@@ -74,6 +74,15 @@ export default function LayoutTabs() {
         }}
       />
       <Tabs.Screen
+        name="historico"
+        options={{
+          title: 'Histórico',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="insights" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="ajustes"
         options={{
           title: 'Ajustes',
