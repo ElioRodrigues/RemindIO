@@ -7,12 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F6F3FA"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -21,11 +15,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F6F3FA"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "SCHEDULE_EXACT_ALARM"
-      ]
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ],
+      "package": "com.doubledodge.remindio"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,7 +30,8 @@
         "expo-image-picker",
         {
           "cameraPermission": "O RemindIO usa a câmera para fotografar a caixa ou a receita do remédio.",
-          "photosPermission": "O RemindIO usa suas fotos para mostrar a caixa ou a receita do remédio."
+          "photosPermission": "O RemindIO usa suas fotos para mostrar a caixa ou a receita do remédio.",
+          "microphonePermission": false
         }
       ],
       [
@@ -44,7 +39,27 @@
         {
           "color": "#A98BCB"
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F6F3FA"
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "34553056-3418-4cf8-9711-7e2416bfb8ad"
+      }
+    },
+    "owner": "doubledodge",
+    "runtimeVersion": "exposdk:58.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/34553056-3418-4cf8-9711-7e2416bfb8ad"
+    }
   }
 }

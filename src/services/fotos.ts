@@ -1,13 +1,13 @@
-import { Directory, File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
+import { supabase } from './supabase';
 
 // De onde a foto vem: a câmera do aparelho ou as fotos que já estão nele.
 export type OrigemDaFoto = 'camera' | 'galeria';
 
-// A pasta das fotos fica dentro da pasta de documentos do app. Só o app
-// enxerga essa pasta, e ela só é apagada quando o app é desinstalado.
-const PASTA_DAS_FOTOS = new Directory(Paths.document, 'fotos');
+// Bucket do Storage onde ficam as fotos (criado no supabase/schema.sql).
+const BUCKET_DAS_FOTOS = 'fotos';
 
 // O mesmo corte para as duas origens: quadrado, porque a foto aparece num
 // quadrado no card e no detalhe; qualidade 0.6 porque uma caixa de remédio
@@ -22,7 +22,7 @@ const OPCOES_DA_FOTO: ImagePicker.ImagePickerOptions = {
 // Abre a câmera ou a galeria e devolve o endereço (uri) da foto escolhida,
 // ou null se o usuário desistiu ou negou a permissão.
 // Esse endereço é TEMPORÁRIO: é um arquivo no cache, que o sistema pode
-// apagar. Quem guarda de verdade é a guardarFoto, na hora de salvar.
+// apagar. Quem envia para o servidor é a guardarFoto, na hora de salvar.
 export async function escolherFoto(origem: OrigemDaFoto): Promise<string | null> {
   try {
     let resultado: ImagePicker.ImagePickerResult;
@@ -72,55 +72,116 @@ function avisarPermissaoNegada() {
   );
 }
 
-// true quando a foto já está na pasta do app (ou seja, já foi guardada).
-function estaNaPastaDoApp(uri: string): boolean {
-  return uri.startsWith(PASTA_DAS_FOTOS.uri);
+// O campo foto pode ser "file:///..." (acabou de tirar, ainda não salvou)
+// ou "<id do usuário>/123.jpg" (o caminho no Storage, que vai para o banco).
+function estaSoNoAparelho(foto: string): boolean {
+  return foto.startsWith('file:') || foto.startsWith('content:');
 }
 
-// Copia a foto do cache para a pasta do app e devolve o endereço novo,
-// que é o que vai para o AsyncStorage. Recebe '' quando não há foto.
-// A cópia só acontece ao salvar o remédio: se o usuário tirar três fotos
-// e desistir do cadastro, nenhuma delas ocupa espaço no aparelho.
-export function guardarFoto(uri: string): string {
-  // Sem foto, ou foto que já foi guardada antes (editar sem trocar a foto):
-  // não há nada para copiar.
-  if (uri === '' || estaNaPastaDoApp(uri)) {
-    return uri;
-  }
-
-  try {
-    // idempotent: true quer dizer "se a pasta já existe, tudo bem".
-    PASTA_DAS_FOTOS.create({ idempotent: true });
-
-    // O nome do arquivo é o instante atual, como o id dos remédios:
-    // nunca se repete.
-    const destino = new File(PASTA_DAS_FOTOS, Date.now() + '.jpg');
-    new File(uri).copy(destino);
-
-    return destino.uri;
-  } catch (erro) {
-    console.log('Erro ao guardar foto', erro);
-    // Sem conseguir copiar, o remédio é salvo sem foto. Guardar o endereço
-    // do cache seria pior: a foto sumiria sozinha algum dia.
-    return '';
-  }
+// Id de quem está logado (da sessão salva no aparelho).
+async function idDoUsuario(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? '';
 }
 
-// Apaga a foto da pasta do app. Usada ao trocar a foto, ao removê-la e ao
-// excluir o remédio, para não sobrar arquivo que ninguém mais usa.
-export function apagarFoto(uri: string) {
-  // Só apaga o que é nosso: nunca um arquivo fora da pasta do app.
-  if (uri === '' || !estaNaPastaDoApp(uri)) {
+// Envia a foto e devolve o caminho no Storage. Só é chamada ao salvar o
+// remédio, então foto de cadastro desistido não vai para o servidor.
+export async function guardarFoto(foto: string): Promise<string> {
+  // Sem foto, ou foto que já está no Storage (editou sem trocar).
+  if (foto === '' || !estaSoNoAparelho(foto)) {
+    return foto;
+  }
+
+  // Uma pasta por usuário; as regras do Storage só liberam a própria pasta.
+  const caminho = (await idDoUsuario()) + '/' + Date.now() + '.jpg';
+
+  // O upload envia os bytes do arquivo.
+  const bytes = await new File(foto).bytes();
+
+  const { error } = await supabase.storage
+    .from(BUCKET_DAS_FOTOS)
+    .upload(caminho, bytes, { contentType: 'image/jpeg' });
+
+  if (error) {
+    throw error;
+  }
+
+  return caminho;
+}
+
+// Usada ao trocar ou remover a foto e ao excluir o remédio. Não lança
+// erro: se falhar, só sobra um arquivo no servidor.
+export async function apagarFoto(foto: string) {
+  if (foto === '' || estaSoNoAparelho(foto)) {
     return;
   }
 
-  try {
-    const arquivo = new File(uri);
+  const { error } = await supabase.storage.from(BUCKET_DAS_FOTOS).remove([foto]);
 
-    if (arquivo.exists) {
-      arquivo.delete();
-    }
-  } catch (erro) {
-    console.log('Erro ao apagar foto', erro);
+  if (error) {
+    console.log('Erro ao apagar foto', error);
   }
+
+  linksJaGerados.delete(foto);
+}
+
+// Primeira etapa de excluir a conta. O Storage não apaga pasta, então
+// lista os arquivos e apaga todos.
+export async function apagarTodasAsFotos() {
+  const pasta = await idDoUsuario();
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET_DAS_FOTOS)
+    .list(pasta, { limit: 1000 });
+
+  if (error) {
+    throw error;
+  }
+
+  if (data.length === 0) {
+    return;
+  }
+
+  const caminhos = data.map((arquivo) => pasta + '/' + arquivo.name);
+  const resposta = await supabase.storage.from(BUCKET_DAS_FOTOS).remove(caminhos);
+
+  if (resposta.error) {
+    throw resposta.error;
+  }
+}
+
+// O bucket é privado, então a foto abre por um link assinado que vence.
+const VALIDADE_DO_LINK_EM_SEGUNDOS = 60 * 60;
+
+// Links já gerados (caminho -> link), para não pedir de novo a cada tela.
+const linksJaGerados = new Map<string, { link: string; venceEm: number }>();
+
+// Endereço que o Image consegue abrir.
+export async function enderecoDaFoto(foto: string): Promise<string> {
+  // Ainda no aparelho: o endereço já serve.
+  if (estaSoNoAparelho(foto)) {
+    return foto;
+  }
+
+  const guardado = linksJaGerados.get(foto);
+
+  // Reaproveita se faltam mais de 5 minutos para vencer.
+  if (guardado !== undefined && guardado.venceEm - Date.now() > 5 * 60 * 1000) {
+    return guardado.link;
+  }
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET_DAS_FOTOS)
+    .createSignedUrl(foto, VALIDADE_DO_LINK_EM_SEGUNDOS);
+
+  if (error) {
+    throw error;
+  }
+
+  linksJaGerados.set(foto, {
+    link: data.signedUrl,
+    venceEm: Date.now() + VALIDADE_DO_LINK_EM_SEGUNDOS * 1000,
+  });
+
+  return data.signedUrl;
 }

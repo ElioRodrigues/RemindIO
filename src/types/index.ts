@@ -1,7 +1,11 @@
+// Quem está logado. A senha não aparece mais aqui: ela fica só no
+// Supabase Auth, e o app nunca a guarda nem a lê de volta.
 export interface Usuario {
+  // O id que o Supabase dá para a conta (um uuid). É o "dono" das linhas
+  // nas tabelas e o nome da pasta das fotos no Storage.
+  id: string;
   nome: string;
   email: string;
-  senha: string;
 }
 
 export interface Remedio {
@@ -13,7 +17,7 @@ export interface Remedio {
   // Maior que 0 quando escolheu um ciclo de X em X horas.
   intervaloEmHoras: number;
   observacao: string;
-  // Endereço da foto da caixa ou da receita, na pasta do app ('' sem foto).
+  // Caminho da foto da caixa ou da receita no Storage ('' sem foto).
   // O ? diz que o campo pode faltar: os remédios cadastrados antes da
   // câmera existir foram salvos sem ele.
   foto?: string;

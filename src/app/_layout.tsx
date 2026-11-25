@@ -18,7 +18,10 @@ import { CABECALHO_DO_APP } from '../constants/navegacao';
 // notificações REMOTAS (push, enviadas por um servidor) não funcionam lá.
 // O RemindIO só usa notificações LOCAIS, agendadas no próprio aparelho, que
 // funcionam normalmente. O aviso não se aplica, então é escondido da tela.
-LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
+LogBox.ignoreLogs([
+  'Push notifications (remote notifications) are unavailable in Expo Go',
+  '`expo-notifications` functionality is not fully supported in Expo Go',
+]);
 
 export default function LayoutRaiz() {
   // useFonts carrega os arquivos das fontes e devolve true quando terminou.
@@ -50,6 +53,7 @@ export default function LayoutRaiz() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="cadastro" options={{ title: 'Criar conta' }} />
+        <Stack.Screen name="termos" options={{ title: 'Termo de privacidade' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
     </>

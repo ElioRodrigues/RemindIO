@@ -30,6 +30,9 @@ export async function configurarNotificacoes() {
         importance: Notifications.AndroidImportance.HIGH,
       });
     } catch (erro) {
+      // No Expo Go 58 esta chamada falha por dentro do próprio Expo Go. Os
+      // lembretes continuam chegando pelo canal padrão da biblioteca; no
+      // APK o canal é criado normalmente.
       console.log('Erro ao criar o canal de notificação', erro);
     }
   }
@@ -114,11 +117,19 @@ async function reagendarLembretes(remedios: Remedio[], nomeDoPet: string) {
 // O que as telas chamam: lê os remédios e o pet da conta logada e refaz os
 // lembretes. Usada ao entrar no app e depois de cadastrar, editar ou
 // excluir um remédio.
+//
+// Os remédios vêm do servidor. Sem internet, os lembretes que já estavam
+// agendados continuam valendo (quem dispara é o sistema), então a falha só
+// vai para o terminal: não vale interromper a pessoa com uma janela.
 export async function atualizarLembretes() {
-  const remedios = await listarRemedios();
-  const pet = await lerPet();
+  try {
+    const remedios = await listarRemedios();
+    const pet = await lerPet();
 
-  await reagendarLembretes(remedios, pet === null ? 'Pipo' : pet.nome);
+    await reagendarLembretes(remedios, pet === null ? 'Pipo' : pet.nome);
+  } catch (erro) {
+    console.log('Erro ao atualizar lembretes', erro);
+  }
 }
 
 // Ao sair da conta, os lembretes dela param. Sem isso, o celular

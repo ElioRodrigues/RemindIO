@@ -9,6 +9,7 @@ import {
   montarHistorico,
   sequenciaDeDias,
 } from '../../services/historico';
+import { avisarErro } from '../../services/erros';
 import { listarRemedios, listarTomadas } from '../../services/storage';
 import { ResumoDoDia } from '../../types';
 
@@ -24,12 +25,19 @@ export default function Historico() {
   useFocusEffect(
     useCallback(() => {
       async function carregarHistorico() {
-        const remedios = await listarRemedios();
-        const tomadas = await listarTomadas();
+        try {
+          // Os dois pedidos ao mesmo tempo (ver o Início).
+          const [remedios, tomadas] = await Promise.all([
+            listarRemedios(),
+            listarTomadas(),
+          ]);
 
-        // A conta fica no service; a tela só guarda o resultado.
-        setHistorico(montarHistorico(remedios, tomadas));
-        setTemRemedios(remedios.length > 0);
+          // A conta fica no service; a tela só guarda o resultado.
+          setHistorico(montarHistorico(remedios, tomadas));
+          setTemRemedios(remedios.length > 0);
+        } catch (erro) {
+          avisarErro('Não deu para carregar o histórico', erro);
+        }
       }
 
       carregarHistorico();
@@ -68,7 +76,7 @@ export default function Historico() {
         data={historico}
         keyExtractor={(dia) => dia.data}
         contentContainerStyle={styles.conteudo}
-        ListHeaderComponent={historico.length > 0 ? resumo : null}
+        ListHeaderComponent={historico.length > 0 ? resumo : undefined}
         ListEmptyComponent={
           <Text style={styles.vazio}>
             {temRemedios

@@ -19,7 +19,8 @@ import { CORES } from '../../../constants/cores';
 import { FONTES, TAMANHOS } from '../../../constants/fontes';
 import { dataPorExtenso } from '../../../services/datas';
 import { situacaoDaDose } from '../../../services/doses';
-import { apagarFoto } from '../../../services/fotos';
+import { avisarErro } from '../../../services/erros';
+import { apagarFoto, enderecoDaFoto } from '../../../services/fotos';
 import { atualizarLembretes } from '../../../services/lembretes';
 import { doseValeHoje } from '../../../services/pet';
 import {
@@ -54,20 +55,25 @@ export default function DetalheRemedio() {
   // Diferencia "ainda carregando" de "não existe": sem isso, a tela
   // mostraria "remédio não encontrado" por um instante ao abrir.
   const [carregou, setCarregou] = useState(false);
-  // Se a foto está aberta em tela cheia.
-  const [fotoAmpliada, setFotoAmpliada] = useState(false);
+  // O link da foto em tela cheia. '' quando ela está fechada.
+  const [fotoAmpliada, setFotoAmpliada] = useState('');
 
   // useFocusEffect, e não useEffect: ao voltar da tela de editar, esta
   // precisa mostrar o remédio já alterado.
   useFocusEffect(
     useCallback(() => {
       async function carregarDados() {
-        const encontrado = await buscarRemedioPorId(id);
-        const listaDeTomadas = await listarTomadas();
+        try {
+          const encontrado = await buscarRemedioPorId(id);
+          const listaDeTomadas = await listarTomadas();
 
-        setRemedio(encontrado);
-        setTomadas(listaDeTomadas);
-        setCarregou(true);
+          setRemedio(encontrado);
+          setTomadas(listaDeTomadas);
+          setCarregou(true);
+        } catch (erro) {
+          avisarErro('Não deu para abrir o remédio', erro);
+          router.back();
+        }
       }
 
       carregarDados();
@@ -96,9 +102,16 @@ export default function DetalheRemedio() {
       return;
     }
 
-    await excluirRemedio(remedio.id);
-    // Sem o remédio, a foto dele não aparece em lugar nenhum: libera espaço.
-    apagarFoto(remedio.foto ?? '');
+    try {
+      await excluirRemedio(remedio.id);
+    } catch (erro) {
+      avisarErro('Não deu para excluir', erro);
+      return;
+    }
+
+    // Sem o remédio, a foto dele não aparece em lugar nenhum: libera espaço
+    // no Storage.
+    await apagarFoto(remedio.foto ?? '');
     // Remédio excluído não avisa mais.
     await atualizarLembretes();
 
@@ -133,6 +146,20 @@ export default function DetalheRemedio() {
         remedio.horarios[0]
       : 'Todos os dias, nos horários marcados';
 
+  // A foto grande precisa do link assinado, como a pequena. Na prática ele
+  // já está guardado (a pequena acabou de pedir), então abre na hora.
+  async function ampliarFoto() {
+    if (remedio === null || !remedio.foto) {
+      return;
+    }
+
+    try {
+      setFotoAmpliada(await enderecoDaFoto(remedio.foto));
+    } catch (erro) {
+      avisarErro('Não deu para abrir a foto', erro);
+    }
+  }
+
   return (
     <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
       <View style={styles.topo}>
@@ -140,7 +167,7 @@ export default function DetalheRemedio() {
             Sem foto, o toque não faz nada (disabled). */}
         <Pressable
           style={styles.foto}
-          onPress={() => setFotoAmpliada(true)}
+          onPress={ampliarFoto}
           disabled={!remedio.foto}
         >
           <FotoDoRemedio foto={remedio.foto} tamanho={96} />
@@ -213,16 +240,16 @@ export default function DetalheRemedio() {
       {/* A foto em tela cheia. Fecha tocando em qualquer lugar ou com o
           botão de voltar do Android (onRequestClose). */}
       <Modal
-        visible={fotoAmpliada}
+        visible={fotoAmpliada !== ''}
         transparent
         animationType="fade"
-        onRequestClose={() => setFotoAmpliada(false)}
+        onRequestClose={() => setFotoAmpliada('')}
       >
-        <Pressable style={styles.veu} onPress={() => setFotoAmpliada(false)}>
-          {remedio.foto ? (
+        <Pressable style={styles.veu} onPress={() => setFotoAmpliada('')}>
+          {fotoAmpliada !== '' ? (
             // contain mostra a foto inteira, sem cortar nada.
             <Image
-              source={{ uri: remedio.foto }}
+              source={{ uri: fotoAmpliada }}
               style={styles.fotoGrande}
               resizeMode="contain"
             />

@@ -1,180 +1,159 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Pet, Remedio, Tomada, Usuario } from '../types';
+import { Pet, Remedio, Tomada } from '../types';
+import { supabase } from './supabase';
 
-// Estas duas valem para o app inteiro.
-const CHAVE_USUARIOS = '@remindio:usuarios';
-const CHAVE_SESSAO = '@remindio:sessao';
+// Todos os dados do app passam por aqui. Antes era AsyncStorage, agora são
+// as tabelas do Supabase; as telas chamam as mesmas funções de antes.
+// Não precisa filtrar por usuário: o RLS do banco (supabase/schema.sql) só
+// devolve as linhas de quem está logado.
+// Se o servidor falhar, a função lança o erro e a tela mostra o aviso.
 
-// Estas três são o começo da chave: o e-mail de quem está logado é colado
-// no fim, para os remédios de um usuário não aparecerem na conta do outro.
-const INICIO_DA_CHAVE_REMEDIOS = '@remindio:remedios';
-const INICIO_DA_CHAVE_TOMADAS = '@remindio:tomadas';
-const INICIO_DA_CHAVE_PET = '@remindio:pet';
+// Conversão entre o app e o banco: no TypeScript é camelCase
+// (intervaloEmHoras), no Postgres é snake_case (intervalo_em_horas).
 
-// Monta a chave do usuário logado, por exemplo:
-// '@remindio:remedios' vira '@remindio:remedios:elio@satya.com.br'
-async function chaveDoUsuarioLogado(inicioDaChave: string): Promise<string> {
-  const email = await lerSessao();
-
-  if (email === null) {
-    return inicioDaChave + ':sem-usuario';
-  }
-
-  return inicioDaChave + ':' + email;
+// O formato de uma linha da tabela remedios, como o Supabase devolve.
+interface LinhaDeRemedio {
+  id: string;
+  nome: string;
+  dosagem: string;
+  horarios: string[];
+  intervalo_em_horas: number;
+  observacao: string;
+  foto: string;
 }
 
-export async function salvarUsuario(usuario: Usuario): Promise<void> {
-  try {
-    const lista = await buscarListaDeUsuarios();
-    lista.push(usuario);
-    await AsyncStorage.setItem(CHAVE_USUARIOS, JSON.stringify(lista));
-  } catch (erro) {
-    console.log('Erro ao salvar usuário', erro);
-  }
+interface LinhaDeTomada {
+  remedio_id: string;
+  horario: string;
+  data: string;
+  atrasada: boolean;
 }
 
-export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | null> {
-  try {
-    const lista = await buscarListaDeUsuarios();
-    let encontrado: Usuario | null = null;
-
-    for (let i = 0; i < lista.length; i++) {
-      if (lista[i].email === email) {
-        encontrado = lista[i];
-      }
-    }
-
-    return encontrado;
-  } catch (erro) {
-    console.log('Erro ao buscar usuário', erro);
-    return null;
-  }
+function linhaParaRemedio(linha: LinhaDeRemedio): Remedio {
+  return {
+    id: linha.id,
+    nome: linha.nome,
+    dosagem: linha.dosagem,
+    horarios: linha.horarios,
+    intervaloEmHoras: linha.intervalo_em_horas,
+    observacao: linha.observacao,
+    foto: linha.foto,
+  };
 }
 
-export async function salvarSessao(email: string): Promise<void> {
-  try {
-    await AsyncStorage.setItem(CHAVE_SESSAO, email);
-  } catch (erro) {
-    console.log('Erro ao salvar sessão', erro);
-  }
+function remedioParaLinha(remedio: Remedio): LinhaDeRemedio {
+  return {
+    id: remedio.id,
+    nome: remedio.nome,
+    dosagem: remedio.dosagem,
+    horarios: remedio.horarios,
+    intervalo_em_horas: remedio.intervaloEmHoras,
+    observacao: remedio.observacao,
+    foto: remedio.foto ?? '',
+  };
 }
 
-export async function lerSessao(): Promise<string | null> {
-  try {
-    const email = await AsyncStorage.getItem(CHAVE_SESSAO);
-    return email;
-  } catch (erro) {
-    console.log('Erro ao ler sessão', erro);
-    return null;
-  }
+function linhaParaTomada(linha: LinhaDeTomada): Tomada {
+  return {
+    remedioId: linha.remedio_id,
+    horario: linha.horario,
+    data: linha.data,
+    atrasada: linha.atrasada,
+  };
 }
 
-export async function limparSessao(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(CHAVE_SESSAO);
-  } catch (erro) {
-    console.log('Erro ao limpar sessão', erro);
-  }
-}
+// Remédios (o CRUD)
+// Toda chamada do supabase-js devolve { data, error }. Se veio error,
+// lança; se não, usa o data.
 
+// READ: todos os remédios da conta, do mais antigo para o mais novo
+// (a mesma ordem em que eram guardados na lista do AsyncStorage).
 export async function listarRemedios(): Promise<Remedio[]> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_REMEDIOS);
-    const texto = await AsyncStorage.getItem(chave);
-    if (!texto) {
-      return [];
-    }
-    const lista: Remedio[] = JSON.parse(texto);
-    return lista;
-  } catch (erro) {
-    console.log('Erro ao listar remédios', erro);
-    return [];
+  const { data, error } = await supabase
+    .from('remedios')
+    .select('*')
+    .order('id', { ascending: true });
+
+  if (error) {
+    throw error;
   }
+
+  return data.map(linhaParaRemedio);
 }
 
-export async function salvarRemedio(remedio: Remedio): Promise<void> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_REMEDIOS);
-    const lista = await listarRemedios();
-    lista.push(remedio);
-    await AsyncStorage.setItem(chave, JSON.stringify(lista));
-  } catch (erro) {
-    console.log('Erro ao salvar remédio', erro);
-  }
-}
-
+// READ de um só. maybeSingle devolve null em vez de erro quando não acha
+// (o remédio pode ter sido excluído e a rota ficado para trás).
 export async function buscarRemedioPorId(id: string): Promise<Remedio | null> {
-  const lista = await listarRemedios();
+  const { data, error } = await supabase
+    .from('remedios')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
 
-  for (let i = 0; i < lista.length; i++) {
-    if (lista[i].id === id) {
-      return lista[i];
-    }
+  if (error) {
+    throw error;
   }
 
-  return null;
+  return data === null ? null : linhaParaRemedio(data);
 }
 
-// Troca o remédio que tem o mesmo id pela versão editada. O id não muda:
+// CREATE
+export async function salvarRemedio(remedio: Remedio): Promise<void> {
+  const { error } = await supabase
+    .from('remedios')
+    .insert(remedioParaLinha(remedio));
+
+  if (error) {
+    throw error;
+  }
+}
+
+// UPDATE: troca os campos do remédio que tem o mesmo id. O id não muda:
 // ele é o instante do cadastro, e o pet usa isso para saber desde quando o
 // remédio existe.
 export async function atualizarRemedio(remedioEditado: Remedio): Promise<void> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_REMEDIOS);
-    const lista = await listarRemedios();
+  const { error } = await supabase
+    .from('remedios')
+    .update(remedioParaLinha(remedioEditado))
+    .eq('id', remedioEditado.id);
 
-    for (let i = 0; i < lista.length; i++) {
-      if (lista[i].id === remedioEditado.id) {
-        lista[i] = remedioEditado;
-      }
-    }
-
-    await AsyncStorage.setItem(chave, JSON.stringify(lista));
-  } catch (erro) {
-    console.log('Erro ao atualizar remédio', erro);
+  if (error) {
+    throw error;
   }
 }
 
-// As tomadas desse remédio NÃO são apagadas: elas são o histórico do que
-// já aconteceu, e o histórico não deve mudar porque o tratamento acabou.
+// DELETE. As tomadas desse remédio NÃO são apagadas: elas são o histórico
+// do que já aconteceu, e o histórico não deve mudar porque o tratamento
+// acabou.
 export async function excluirRemedio(id: string): Promise<void> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_REMEDIOS);
-    const lista = await listarRemedios();
+  const { error } = await supabase.from('remedios').delete().eq('id', id);
 
-    // filter monta uma lista nova só com os remédios que passam no teste:
-    // todos, menos o que tem esse id.
-    const restantes = lista.filter((remedio) => remedio.id !== id);
-
-    await AsyncStorage.setItem(chave, JSON.stringify(restantes));
-  } catch (erro) {
-    console.log('Erro ao excluir remédio', erro);
+  if (error) {
+    throw error;
   }
 }
+
+// Tomadas (doses confirmadas)
 
 export async function listarTomadas(): Promise<Tomada[]> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_TOMADAS);
-    const texto = await AsyncStorage.getItem(chave);
-    if (!texto) {
-      return [];
-    }
-    const lista: Tomada[] = JSON.parse(texto);
-    return lista;
-  } catch (erro) {
-    console.log('Erro ao listar tomadas', erro);
-    return [];
+  const { data, error } = await supabase.from('tomadas').select('*');
+
+  if (error) {
+    throw error;
   }
+
+  return data.map(linhaParaTomada);
 }
 
 export async function registrarTomada(tomada: Tomada): Promise<void> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_TOMADAS);
-    const lista = await listarTomadas();
-    lista.push(tomada);
-    await AsyncStorage.setItem(chave, JSON.stringify(lista));
-  } catch (erro) {
-    console.log('Erro ao registrar tomada', erro);
+  const { error } = await supabase.from('tomadas').insert({
+    remedio_id: tomada.remedioId,
+    horario: tomada.horario,
+    data: tomada.data,
+    atrasada: tomada.atrasada,
+  });
+
+  if (error) {
+    throw error;
   }
 }
 
@@ -185,70 +164,45 @@ export async function removerTomada(
   horario: string,
   data: string
 ): Promise<void> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_TOMADAS);
-    const lista = await listarTomadas();
+  const { error } = await supabase
+    .from('tomadas')
+    .delete()
+    .eq('remedio_id', remedioId)
+    .eq('horario', horario)
+    .eq('data', data);
 
-    // filter fica com todas as tomadas MENOS a que tem os três iguais.
-    const restantes = lista.filter(
-      (tomada) =>
-        !(
-          tomada.remedioId === remedioId &&
-          tomada.horario === horario &&
-          tomada.data === data
-        )
-    );
-
-    await AsyncStorage.setItem(chave, JSON.stringify(restantes));
-  } catch (erro) {
-    console.log('Erro ao remover tomada', erro);
+  if (error) {
+    throw error;
   }
 }
 
+// Pet: o nome dele fica na tabela perfis, criada no cadastro.
+
 export async function lerPet(): Promise<Pet | null> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_PET);
-    const texto = await AsyncStorage.getItem(chave);
-    if (!texto) {
-      return null;
-    }
-    const pet: Pet = JSON.parse(texto);
-    return pet;
-  } catch (erro) {
-    console.log('Erro ao ler pet', erro);
-    return null;
+  const { data, error } = await supabase
+    .from('perfis')
+    .select('nome_do_pet')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
   }
+
+  return data === null ? null : { nome: data.nome_do_pet };
 }
 
 export async function salvarPet(pet: Pet): Promise<void> {
-  try {
-    const chave = await chaveDoUsuarioLogado(INICIO_DA_CHAVE_PET);
-    await AsyncStorage.setItem(chave, JSON.stringify(pet));
-  } catch (erro) {
-    console.log('Erro ao salvar pet', erro);
-  }
-}
+  // O Supabase não aceita update sem filtro, então filtramos pelo id de
+  // quem está logado (getSession lê a sessão salva, sem ir à internet).
+  const { data: sessao } = await supabase.auth.getSession();
+  const id = sessao.session?.user.id ?? '';
 
-// O Cadastro precisa salvar o pet de uma conta que ainda NÃO está logada.
-// As outras funções montam a chave a partir da sessão; esta recebe o
-// e-mail por parâmetro, porque ainda não existe sessão nesse momento.
-export async function salvarPetDaConta(email: string, pet: Pet): Promise<void> {
-  try {
-    await AsyncStorage.setItem(
-      INICIO_DA_CHAVE_PET + ':' + email,
-      JSON.stringify(pet)
-    );
-  } catch (erro) {
-    console.log('Erro ao salvar pet da conta', erro);
-  }
-}
+  const { error } = await supabase
+    .from('perfis')
+    .update({ nome_do_pet: pet.nome })
+    .eq('id', id);
 
-// Função só deste arquivo: as telas não precisam montar a lista de usuários.
-async function buscarListaDeUsuarios(): Promise<Usuario[]> {
-  const texto = await AsyncStorage.getItem(CHAVE_USUARIOS);
-  if (!texto) {
-    return [];
+  if (error) {
+    throw error;
   }
-  const lista: Usuario[] = JSON.parse(texto);
-  return lista;
 }

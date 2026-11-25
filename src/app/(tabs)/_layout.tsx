@@ -10,6 +10,13 @@ import {
   configurarNotificacoes,
 } from '../../services/lembretes';
 
+// As mesmas cores do tabBarActiveTintColor e do tabBarInactiveTintColor.
+// No SDK 58 a cor que a aba entrega ao ícone pode ser null no tipo, e o
+// MaterialIcons não aceita null; com as constantes, o tipo é sempre string.
+function corDoIcone(ativa: boolean): string {
+  return ativa ? CORES.ameixa : CORES.ameixaSuave;
+}
+
 export default function LayoutTabs() {
   // Este layout só aparece com alguém logado (depois do login, ou quando o
   // app abre e lembra a sessão). Por isso é aqui que os lembretes da conta
@@ -50,6 +57,9 @@ export default function LayoutTabs() {
           borderTopColor: CORES.lavandaClara,
         },
         sceneStyle: { backgroundColor: CORES.nevoa },
+        // No SDK 58 a barra de abas subia junto com o teclado e roubava
+        // espaço do formulário. Escondida, o campo focado fica à vista.
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
@@ -58,8 +68,8 @@ export default function LayoutTabs() {
           title: 'Hoje',
           // O Início tem a saudação dele, então dispensa o cabeçalho.
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="today" color={color} size={size} />
+          tabBarIcon: ({ focused, size }) => (
+            <MaterialIcons name="today" color={corDoIcone(focused)} size={size} />
           ),
         }}
       />
@@ -68,8 +78,8 @@ export default function LayoutTabs() {
         options={{
           title: 'Remédios',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="medication" color={color} size={size} />
+          tabBarIcon: ({ focused, size }) => (
+            <MaterialIcons name="medication" color={corDoIcone(focused)} size={size} />
           ),
         }}
       />
@@ -77,8 +87,8 @@ export default function LayoutTabs() {
         name="historico"
         options={{
           title: 'Histórico',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="insights" color={color} size={size} />
+          tabBarIcon: ({ focused, size }) => (
+            <MaterialIcons name="insights" color={corDoIcone(focused)} size={size} />
           ),
         }}
       />
@@ -86,8 +96,8 @@ export default function LayoutTabs() {
         name="ajustes"
         options={{
           title: 'Ajustes',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="settings" color={color} size={size} />
+          tabBarIcon: ({ focused, size }) => (
+            <MaterialIcons name="settings" color={corDoIcone(focused)} size={size} />
           ),
         }}
       />

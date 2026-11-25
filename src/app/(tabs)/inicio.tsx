@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -27,16 +28,15 @@ import {
   montarDosesDeHoje,
   situacaoDaDose,
 } from '../../services/doses';
+import { buscarUsuarioLogado } from '../../services/autenticacao';
+import { avisarErro } from '../../services/erros';
 import { calcularSaude, estadoDoPet } from '../../services/pet';
 import {
-  buscarUsuarioPorEmail,
   lerPet,
-  lerSessao,
   listarRemedios,
   listarTomadas,
   registrarTomada,
   removerTomada,
-  salvarPet,
 } from '../../services/storage';
 import { Dose, Pet, Remedio, Tomada } from '../../types';
 
@@ -59,6 +59,9 @@ export default function Inicio() {
   const [nomeDoUsuario, setNomeDoUsuario] = useState('');
   const [remedios, setRemedios] = useState<Remedio[]>([]);
   const [tomadas, setTomadas] = useState<Tomada[]>([]);
+  // Enquanto os dados não chegam do servidor, a cartela mostra uma rodinha
+  // em vez de "Cadastre o primeiro remédio".
+  const [carregando, setCarregando] = useState(true);
 
   // useFocusEffect roda toda vez que a aba aparece, e não só na primeira.
   // Sem isso, um remédio cadastrado agora não apareceria nas doses de hoje.
@@ -67,32 +70,33 @@ export default function Inicio() {
     useCallback(() => {
       // A função async fica aqui dentro porque o efeito não aceita async.
       async function carregarDados() {
-        const listaDeRemedios = await listarRemedios();
-        const listaDeTomadas = await listarTomadas();
-        const petSalvo = await lerPet();
+        try {
+          // Os quatro pedidos vão ao servidor AO MESMO TEMPO. Com um await
+          // por linha, cada um esperaria o anterior voltar da internet.
+          // Promise.all espera todos e devolve os resultados na mesma ordem.
+          const [listaDeRemedios, listaDeTomadas, petSalvo, usuario] =
+            await Promise.all([
+              listarRemedios(),
+              listarTomadas(),
+              lerPet(),
+              buscarUsuarioLogado(),
+            ]);
 
-        setRemedios(listaDeRemedios);
-        setTomadas(listaDeTomadas);
+          setRemedios(listaDeRemedios);
+          setTomadas(listaDeTomadas);
+          // O pet nasce junto com a conta (gatilho criar_perfil no banco),
+          // então aqui ele sempre existe.
+          setPet(petSalvo);
 
-        // Só o primeiro nome, para a saudação ficar curta.
-        const email = await lerSessao();
-        if (email !== null) {
-          const usuario = await buscarUsuarioPorEmail(email);
+          // Só o primeiro nome, para a saudação ficar curta.
           if (usuario !== null) {
             setNomeDoUsuario(usuario.nome.split(' ')[0]);
           }
+        } catch (erro) {
+          avisarErro('Não deu para carregar a cartela', erro);
         }
 
-        // Primeiro acesso da conta: o pet ainda não existe, então nasce
-        // aqui. Só depois do login, para ter dono.
-        if (petSalvo === null) {
-          const petNovo = { nome: 'Pipo' };
-          await salvarPet(petNovo);
-          setPet(petNovo);
-          return;
-        }
-
-        setPet(petSalvo);
+        setCarregando(false);
       }
 
       carregarDados();
@@ -107,16 +111,21 @@ export default function Inicio() {
     // gravado, para a tela e o pet nunca discordarem.
     const atrasada = situacaoDaDose(dose, tomadas) === 'atrasada';
 
-    await registrarTomada({
-      remedioId: dose.remedio.id,
-      horario: dose.horario,
-      data: dataDeHoje(),
-      atrasada: atrasada,
-    });
+    try {
+      await registrarTomada({
+        remedioId: dose.remedio.id,
+        horario: dose.horario,
+        data: dataDeHoje(),
+        atrasada: atrasada,
+      });
 
-    // Relê as tomadas para a bolha virar "tomada" na tela.
-    const listaAtualizada = await listarTomadas();
-    setTomadas(listaAtualizada);
+      // Relê as tomadas para a bolha virar "tomada" na tela.
+      const listaAtualizada = await listarTomadas();
+      setTomadas(listaAtualizada);
+    } catch (erro) {
+      avisarErro('Não deu para registrar a dose', erro);
+      return;
+    }
 
     if (Platform.OS === 'android') {
       const aviso = atrasada
@@ -140,12 +149,16 @@ export default function Inicio() {
   }
 
   async function desfazerDose(dose: Dose) {
-    await removerTomada(dose.remedio.id, dose.horario, dataDeHoje());
+    try {
+      await removerTomada(dose.remedio.id, dose.horario, dataDeHoje());
 
-    // Relê as tomadas: a bolha volta ao estado de antes, e a saúde do pet,
-    // que é calculada a partir delas, se corrige sozinha.
-    const listaAtualizada = await listarTomadas();
-    setTomadas(listaAtualizada);
+      // Relê as tomadas: a bolha volta ao estado de antes, e a saúde do
+      // pet, que é calculada a partir delas, se corrige sozinha.
+      const listaAtualizada = await listarTomadas();
+      setTomadas(listaAtualizada);
+    } catch (erro) {
+      avisarErro('Não deu para desfazer a dose', erro);
+    }
   }
 
   // A saúde sai do histórico, então já reflete qualquer dose vencida agora.
@@ -213,6 +226,9 @@ export default function Inicio() {
         contentContainerStyle={styles.conteudo}
         ListHeaderComponent={topoDaTela}
         ListEmptyComponent={
+          carregando ? (
+            <ActivityIndicator color={CORES.lavanda} size="large" />
+          ) : (
           <View style={styles.vazio}>
             <Text style={styles.textoVazio}>
               Cadastre o primeiro remédio para montar a cartela de hoje.
@@ -221,7 +237,7 @@ export default function Inicio() {
               titulo="Cadastrar remédio"
               // origem=hoje avisa o formulário para voltar a esta tela
               // depois de salvar, e não para a lista de remédios.
-              // withAnchor põe a lista (o initialRouteName da pilha de
+              // withAnchor põe a lista (a anchor da pilha de
               // remédios) embaixo do formulário. Sem ele, se a aba Remédios
               // nunca foi aberta, a pilha nascia só com o formulário, sem
               // seta de voltar.
@@ -230,6 +246,7 @@ export default function Inicio() {
               }
             />
           </View>
+          )
         }
         renderItem={({ item, index }) => (
           <BolhaDose

@@ -1,5 +1,5 @@
-import { useHeaderHeight } from '@react-navigation/elements';
 import { router } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Formik } from 'formik';
 import {
   Alert,
@@ -12,15 +12,12 @@ import {
 } from 'react-native';
 import * as Yup from 'yup';
 import { Botao } from '../components/Botao';
+import { CaixaDeAceite } from '../components/CaixaDeAceite';
 import { CampoTexto } from '../components/CampoTexto';
 import { CORES } from '../constants/cores';
 import { FONTES, TAMANHOS } from '../constants/fontes';
-import {
-  buscarUsuarioPorEmail,
-  salvarPetDaConta,
-  salvarSessao,
-  salvarUsuario,
-} from '../services/storage';
+import { criarConta as criarContaNoSupabase } from '../services/autenticacao';
+import { avisarErro } from '../services/erros';
 
 interface DadosDoCadastro {
   nome: string;
@@ -28,6 +25,8 @@ interface DadosDoCadastro {
   senha: string;
   confirmacao: string;
   nomeDoPet: string;
+  // LGPD: a conta só é criada depois que a pessoa aceita o termo.
+  aceitouTermos: boolean;
 }
 
 const valoresIniciais: DadosDoCadastro = {
@@ -39,6 +38,9 @@ const valoresIniciais: DadosDoCadastro = {
   // valor digitado, e o formulário acusava "Dê um nome ao seu pet" num
   // campo que a pessoa achava que estava preenchido. Quem quiser, troca.
   nomeDoPet: 'Pipo',
+  // Começa desmarcada: o aceite precisa ser um gesto da pessoa, não algo
+  // que o app decide por ela.
+  aceitouTermos: false,
 };
 
 const regrasDeValidacao = Yup.object({
@@ -61,6 +63,8 @@ const regrasDeValidacao = Yup.object({
     .required('Dê um nome ao seu pet')
     // Nome curto, para caber ao lado da % de saúde na tela Hoje.
     .max(20, 'Use até 20 letras'),
+  // oneOf([true]): só passa se for exatamente true, ou seja, marcada.
+  aceitouTermos: Yup.boolean().oneOf([true], 'Aceite o termo para criar a conta'),
 });
 
 export default function Cadastro() {
@@ -72,31 +76,36 @@ export default function Cadastro() {
     // Guardamos o e-mail sempre do mesmo jeito, sem espaços e em minúsculas,
     // senão "Ana@email.com" e "ana@email.com" virariam duas contas.
     const email = dados.email.trim().toLowerCase();
+    let jaEntrou = false;
 
-    // Não pode existir duas contas com o mesmo e-mail.
-    const jaExiste = await buscarUsuarioPorEmail(email);
-
-    if (jaExiste !== null) {
-      Alert.alert(
-        'Este e-mail já tem conta',
-        'Volte e entre com ele, ou use outro e-mail.'
-      );
+    try {
+      // O Supabase cria a conta e, no mesmo pedido, o perfil com o nome e o
+      // pet (gatilho criar_perfil). E-mail repetido volta como erro
+      // user_already_exists, traduzido em erros.ts.
+      jaEntrou = await criarContaNoSupabase({
+        nome: dados.nome.trim(),
+        email: email,
+        senha: dados.senha,
+        nomeDoPet: dados.nomeDoPet.trim(),
+      });
+    } catch (erro) {
+      avisarErro('Não deu para criar a conta', erro);
       return;
     }
 
-    await salvarUsuario({
-      nome: dados.nome.trim(),
-      email: email,
-      senha: dados.senha,
-    });
-
-    // Ainda não existe sessão (a pessoa só vai entrar depois), então o pet
-    // é salvo com o e-mail passado direto, e não pelo usuário logado.
-    await salvarPetDaConta(email, { nome: dados.nomeDoPet.trim() });
+    // Se o projeto do Supabase estiver pedindo confirmação de e-mail, a
+    // conta existe mas ainda não pode entrar. Volta para o Login.
+    if (!jaEntrou) {
+      Alert.alert(
+        'Confirme seu e-mail',
+        'Enviamos um link para ' + email + '. Depois de confirmar, é só entrar.'
+      );
+      router.back();
+      return;
+    }
 
     // A pessoa acabou de digitar o e-mail e a senha: pedir de novo no Login
     // seria trabalho à toa. A conta já entra logada, como o "Entrar" faz.
-    await salvarSessao(email);
 
     if (Platform.OS === 'android') {
       ToastAndroid.show(
@@ -124,7 +133,8 @@ export default function Cadastro() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.intro}>
-          Seus remédios e seu pet ficam guardados neste aparelho, na sua conta.
+          Seus remédios e seu pet ficam guardados na sua conta, num servidor
+          seguro. Dá para entrar de qualquer celular.
         </Text>
 
         <Formik
@@ -139,6 +149,7 @@ export default function Cadastro() {
             handleChange,
             handleSubmit,
             setFieldTouched,
+            setFieldValue,
             isSubmitting,
           }) => (
             <>
@@ -192,8 +203,21 @@ export default function Cadastro() {
                 dica="Ele fica saudável quando você toma os remédios na hora."
               />
 
+              {/* A caixa não é um campo de texto, então não usa handleChange:
+                  setFieldValue grava o valor novo direto no Formik. */}
+              <CaixaDeAceite
+                marcada={values.aceitouTermos}
+                aoAlternar={() =>
+                  setFieldValue('aceitouTermos', !values.aceitouTermos)
+                }
+                aoAbrirTermo={() => router.push('/termos')}
+                // Diferente dos campos, aqui não há "sair do campo": o erro
+                // aparece quando a pessoa tenta criar a conta sem marcar.
+                erro={touched.aceitouTermos ? errors.aceitouTermos : undefined}
+              />
+
               <Botao
-                titulo="Criar conta"
+                titulo={isSubmitting ? 'Criando conta...' : 'Criar conta'}
                 aoPressionar={() => handleSubmit()}
                 desabilitado={isSubmitting}
               />

@@ -6,6 +6,7 @@ import {
   RemedioDoFormulario,
 } from '../../../../components/FormularioRemedio';
 import { CORES } from '../../../../constants/cores';
+import { avisarErro } from '../../../../services/erros';
 import { apagarFoto, guardarFoto } from '../../../../services/fotos';
 import { atualizarLembretes } from '../../../../services/lembretes';
 import { atualizarRemedio, buscarRemedioPorId } from '../../../../services/storage';
@@ -20,25 +21,39 @@ export default function EditarRemedio() {
   // useEffect basta: o remédio não muda enquanto esta tela está aberta.
   useEffect(() => {
     async function carregarRemedio() {
-      const encontrado = await buscarRemedioPorId(id);
-      setRemedio(encontrado);
+      try {
+        const encontrado = await buscarRemedioPorId(id);
+        setRemedio(encontrado);
+      } catch (erro) {
+        avisarErro('Não deu para abrir o remédio', erro);
+        router.back();
+      }
     }
 
     carregarRemedio();
   }, [id]);
 
   async function salvarAlteracoes(dados: RemedioDoFormulario) {
-    const fotoNova = guardarFoto(dados.foto ?? '');
+    let fotoNova = '';
 
-    // A mesma id de antes: é ela que diz qual remédio está sendo trocado.
-    await atualizarRemedio({ id: id, ...dados, foto: fotoNova });
+    try {
+      // Se a foto foi trocada, a nova vai para o Storage agora. Se não foi,
+      // guardarFoto devolve o mesmo caminho de antes, sem enviar nada.
+      fotoNova = await guardarFoto(dados.foto ?? '');
+
+      // A mesma id de antes: é ela que diz qual remédio está sendo trocado.
+      await atualizarRemedio({ id: id, ...dados, foto: fotoNova });
+    } catch (erro) {
+      avisarErro('Não deu para salvar', erro);
+      return;
+    }
 
     // Se a foto foi trocada ou removida, a antiga não é mais de ninguém.
     // Só apaga depois de salvar: se algo der errado antes, o remédio ainda
     // aponta para a foto antiga, e ela precisa continuar existindo.
     const fotoAntiga = remedio !== null && remedio.foto ? remedio.foto : '';
     if (fotoAntiga !== fotoNova) {
-      apagarFoto(fotoAntiga);
+      await apagarFoto(fotoAntiga);
     }
 
     // Os horários podem ter mudado: os lembretes acompanham.
@@ -52,7 +67,7 @@ export default function EditarRemedio() {
   }
 
   // O Formik só lê os valores iniciais uma vez, quando aparece. Por isso o
-  // formulário só é desenhado depois que o remédio chegou do AsyncStorage;
+  // formulário só é desenhado depois que o remédio chegou do Supabase;
   // antes disso ele abriria vazio e continuaria vazio.
   if (remedio === null) {
     return <View style={{ flex: 1, backgroundColor: CORES.nevoa }} />;

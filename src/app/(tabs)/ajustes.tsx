@@ -17,16 +17,19 @@ import { JanelaNomeDoPet } from '../../components/JanelaNomeDoPet';
 import { CORES } from '../../constants/cores';
 import { FONTES, TAMANHOS } from '../../constants/fontes';
 import {
+  buscarUsuarioLogado,
+  excluirConta,
+  sair as sairDoSupabase,
+} from '../../services/autenticacao';
+import { avisarErro } from '../../services/erros';
+import {
   atualizarLembretes,
   cancelarLembretes,
   lembretesPermitidos,
 } from '../../services/lembretes';
 import { calcularSaude } from '../../services/pet';
 import {
-  buscarUsuarioPorEmail,
   lerPet,
-  lerSessao,
-  limparSessao,
   listarRemedios,
   listarTomadas,
   salvarPet,
@@ -42,6 +45,8 @@ export default function Ajustes() {
   const [janelaAberta, setJanelaAberta] = useState(false);
   // Se o aparelho deixa o app mostrar notificações.
   const [lembretesLigados, setLembretesLigados] = useState(false);
+  // true enquanto a conta está sendo apagada no servidor.
+  const [excluindo, setExcluindo] = useState(false);
 
   // useFocusEffect, e não useEffect: a aba não é desmontada ao trocar de aba.
   // Com useEffect, a saúde e o total de remédios ficavam com o valor da
@@ -49,22 +54,23 @@ export default function Ajustes() {
   useFocusEffect(
     useCallback(() => {
       async function carregarDados() {
-        const email = await lerSessao();
+        try {
+          // Os quatro pedidos ao mesmo tempo (ver o Início).
+          const [usuarioLogado, petSalvo, lista, tomadas] = await Promise.all([
+            buscarUsuarioLogado(),
+            lerPet(),
+            listarRemedios(),
+            listarTomadas(),
+          ]);
 
-        if (email !== null) {
-          const usuarioSalvo = await buscarUsuarioPorEmail(email);
-          setUsuario(usuarioSalvo);
+          setUsuario(usuarioLogado);
+          setPet(petSalvo);
+          setTotalDeRemedios(lista.length);
+          // A mesma conta da tela de Início, para os dois números baterem.
+          setSaudeDoPet(calcularSaude(lista, tomadas));
+        } catch (erro) {
+          avisarErro('Não deu para carregar seus dados', erro);
         }
-
-        const petSalvo = await lerPet();
-        setPet(petSalvo);
-
-        const lista = await listarRemedios();
-        setTotalDeRemedios(lista.length);
-
-        // A mesma conta da tela de Início, para os dois números baterem.
-        const tomadas = await listarTomadas();
-        setSaudeDoPet(calcularSaude(lista, tomadas));
 
         // Consultado a cada visita: o usuário pode ter ido às configurações
         // do aparelho, liberado as notificações e voltado.
@@ -81,7 +87,13 @@ export default function Ajustes() {
   );
 
   async function renomearPet(novoNome: string) {
-    await salvarPet({ nome: novoNome });
+    try {
+      await salvarPet({ nome: novoNome });
+    } catch (erro) {
+      avisarErro('Não deu para renomear o pet', erro);
+      return;
+    }
+
     // Atualiza o estado para a tela mostrar o nome novo sem reabrir a aba.
     setPet({ nome: novoNome });
     setJanelaAberta(false);
@@ -97,7 +109,7 @@ export default function Ajustes() {
     // Sair é uma ação destrutiva, então perguntamos antes de fazer.
     Alert.alert(
       'Sair da conta?',
-      'Seus remédios continuam salvos. É só entrar de novo para vê-los.',
+      'Seus remédios continuam salvos na sua conta. É só entrar de novo, neste ou em outro celular.',
       [
         { text: 'Cancelar' },
         { text: 'Sair', onPress: sair },
@@ -108,9 +120,43 @@ export default function Ajustes() {
   async function sair() {
     // Os lembretes são da conta: quem saiu não deve mais ser avisado.
     await cancelarLembretes();
-    await limparSessao();
+    await sairDoSupabase();
 
     // replace para o botão de voltar não retornar ao app já deslogado.
+    router.replace('/');
+  }
+
+  // LGPD: excluir a conta. Pergunta antes, deixando claro que não tem volta
+  // e o que é apagado, porque um toque errado aqui perde tudo.
+  function confirmarExclusao() {
+    Alert.alert(
+      'Excluir sua conta?',
+      'Sua conta, seus remédios, o histórico de doses, as fotos e o pet serão apagados do servidor para sempre. Não dá para desfazer.',
+      [
+        { text: 'Cancelar' },
+        { text: 'Excluir tudo', style: 'destructive', onPress: excluir },
+      ]
+    );
+  }
+
+  async function excluir() {
+    setExcluindo(true);
+
+    try {
+      await excluirConta();
+    } catch (erro) {
+      setExcluindo(false);
+      avisarErro('Não deu para excluir a conta', erro);
+      return;
+    }
+
+    // A conta não existe mais: os lembretes dela também não.
+    await cancelarLembretes();
+
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Conta excluída', ToastAndroid.SHORT);
+    }
+
     router.replace('/');
   }
 
@@ -202,11 +248,31 @@ export default function Ajustes() {
           </Text>
         )}
 
+        <Text style={styles.grupo}>Privacidade</Text>
+        <View style={styles.cartao}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.linha,
+              pressed ? styles.linhaPressionada : null,
+            ]}
+            onPress={() => router.push('/termos')}
+          >
+            <Text style={styles.rotulo}>Termo de privacidade</Text>
+            <MaterialIcons name="chevron-right" size={22} color={CORES.ameixaSuave} />
+          </Pressable>
+        </View>
+
         <View style={styles.sair}>
           <Botao
             titulo="Sair da conta"
             variante="secundario"
             aoPressionar={confirmarSaida}
+          />
+          <Botao
+            titulo={excluindo ? 'Excluindo...' : 'Excluir minha conta'}
+            variante="perigo"
+            aoPressionar={confirmarExclusao}
+            desabilitado={excluindo}
           />
         </View>
       </ScrollView>
@@ -289,5 +355,6 @@ const styles = StyleSheet.create({
   },
   sair: {
     marginTop: 8,
+    gap: 12,
   },
 });

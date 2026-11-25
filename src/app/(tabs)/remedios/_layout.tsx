@@ -6,10 +6,11 @@ import { CABECALHO_DO_APP } from '../../../constants/navegacao';
 // "Novo remédio" direto da tela Hoje criava uma pilha só com o formulário:
 // ao salvar, o back voltava para Hoje e o formulário ficava preso na aba
 // Remédios, ainda preenchido e sem seta de voltar.
-// Atenção: o Expo Router só usa este initialRouteName quando a navegação
-// pede, com router.push(..., { withAnchor: true }) (ver a tela Hoje).
+// Atenção: o Expo Router só usa esta âncora quando a navegação pede, com
+// router.push(..., { withAnchor: true }) (ver a tela Hoje). Até o SDK 54 o
+// nome era initialRouteName; no SDK 58 passou a ser anchor.
 export const unstable_settings = {
-  initialRouteName: 'index',
+  anchor: 'index',
 };
 
 export default function LayoutRemedios() {

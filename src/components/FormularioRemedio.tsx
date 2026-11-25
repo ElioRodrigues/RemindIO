@@ -1,4 +1,4 @@
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Formik } from 'formik';
 import { useState } from 'react';
 import {
@@ -177,7 +177,7 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
       intervaloEmHoras: intervaloEmHoras,
       observacao: campos.observacao.trim(),
       // Aqui a foto ainda pode ser o endereço temporário da câmera. A tela
-      // que salva é quem copia para a pasta do app (guardarFoto).
+      // que salva é quem envia para o Storage (guardarFoto).
       foto: foto,
     });
   }
@@ -311,8 +311,11 @@ export function FormularioRemedio(props: FormularioRemedioProps) {
                 dica="Opcional."
               />
 
+              {/* Agora salvar vai à internet e leva um instante (mais ainda
+                  com foto). O texto muda para a pessoa saber que o toque
+                  funcionou, e o botão fica travado para não salvar duas vezes. */}
               <Botao
-                titulo={props.tituloDoBotao}
+                titulo={isSubmitting ? 'Salvando...' : props.tituloDoBotao}
                 aoPressionar={() => handleSubmit()}
                 desabilitado={isSubmitting}
               />

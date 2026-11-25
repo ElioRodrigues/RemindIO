@@ -2,7 +2,6 @@ import { Redirect, router } from 'expo-router';
 import { Formik } from 'formik';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -19,10 +18,11 @@ import { CampoTexto } from '../components/CampoTexto';
 import { CORES } from '../constants/cores';
 import { FONTES, TAMANHOS } from '../constants/fontes';
 import {
-  buscarUsuarioPorEmail,
-  lerSessao,
-  salvarSessao,
-} from '../services/storage';
+  buscarUsuarioLogado,
+  entrar as entrarNoSupabase,
+  haSessao,
+} from '../services/autenticacao';
+import { avisarErro } from '../services/erros';
 
 interface DadosDoLogin {
   email: string;
@@ -49,41 +49,44 @@ const regrasDeValidacao = Yup.object({
 
 export default function Login() {
   // Ao abrir o app, ainda não sabemos se alguém ficou logado da última vez.
-  // Enquanto o AsyncStorage não responde, a situação é 'verificando'.
+  // Enquanto a sessão guardada não é lida, a situação é 'verificando'.
   const [sessao, setSessao] = useState<'verificando' | 'logado' | 'deslogado'>(
     'verificando'
   );
 
   useEffect(() => {
     async function verificarSessao() {
-      const email = await lerSessao();
-      setSessao(email === null ? 'deslogado' : 'logado');
+      const logado = await haSessao();
+      setSessao(logado ? 'logado' : 'deslogado');
     }
 
     verificarSessao();
   }, []);
 
-  // É async porque ler o AsyncStorage demora, e por isso usamos await.
+  // É async porque o login vai até o servidor do Supabase e volta.
   async function entrar(dados: DadosDoLogin) {
     // "Ana@Email.com " e "ana@email.com" são o mesmo e-mail para o usuário.
     const email = dados.email.trim().toLowerCase();
-    const usuario = await buscarUsuarioPorEmail(email);
 
-    if (usuario === null || usuario.senha !== dados.senha) {
-      // A mensagem não diz qual dos dois está errado de propósito: dizer
-      // "e-mail não existe" revelaria quem tem conta no app.
-      Alert.alert(
-        'E-mail ou senha incorretos',
-        'Confira os dois e tente de novo.'
-      );
+    try {
+      // Quem confere a senha agora é o servidor. Se estiver errada, ele
+      // devolve o erro invalid_credentials, que vira "E-mail ou senha
+      // incorretos" em erros.ts.
+      await entrarNoSupabase(email, dados.senha);
+    } catch (erro) {
+      avisarErro('Não deu para entrar', erro);
       return;
     }
 
-    await salvarSessao(usuario.email);
-
-    // O Toast só existe no Android, por isso a checagem antes.
-    if (Platform.OS === 'android') {
-      ToastAndroid.show('Olá, ' + usuario.nome.split(' ')[0], ToastAndroid.SHORT);
+    // O Toast só existe no Android, por isso a checagem antes. O nome vem
+    // do perfil; se não vier (internet caiu bem agora), entra sem saudar.
+    try {
+      const usuario = await buscarUsuarioLogado();
+      if (Platform.OS === 'android' && usuario !== null) {
+        ToastAndroid.show('Olá, ' + usuario.nome.split(' ')[0], ToastAndroid.SHORT);
+      }
+    } catch (erro) {
+      console.log('Erro ao buscar o nome', erro);
     }
 
     // replace impede que o botão físico de voltar retorne para o Login.
@@ -166,7 +169,7 @@ export default function Login() {
 
                 <View style={styles.espaco}>
                   <Botao
-                    titulo="Entrar"
+                    titulo={isSubmitting ? 'Entrando...' : 'Entrar'}
                     aoPressionar={() => handleSubmit()}
                     desabilitado={isSubmitting}
                   />
